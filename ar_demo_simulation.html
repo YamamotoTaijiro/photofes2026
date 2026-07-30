@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>AR写真解説 - 体験デモ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg: #0c0c0d;
+    --panel: #161617;
+    --ink: #ece7df;
+    --ink-dim: #8b8681;
+    --gold: #c9a24a;
+    --line: rgba(236,231,223,0.14);
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg); color:var(--ink);
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    overflow:hidden;
+  }
+  .stage{
+    position:relative;
+    width:100%; height:100vh;
+    max-width:480px; margin:0 auto;
+    display:flex; flex-direction:column;
+  }
+
+  /* --- top bar: camera-ish chrome --- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 20px 10px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px; letter-spacing:0.12em;
+    color:var(--ink-dim);
+  }
+  .topbar .rec{ color:var(--gold); }
+  .topbar .rec::before{
+    content:''; display:inline-block; width:6px; height:6px;
+    border-radius:50%; background:var(--gold); margin-right:6px;
+    animation:pulse 1.6s infinite;
+  }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.25;} }
+
+  /* --- viewfinder area showing "artworks" to tap --- */
+  .viewfinder{
+    position:relative;
+    flex:1;
+    display:flex; align-items:center; justify-content:center;
+    padding:10px 24px 0;
+  }
+  .frame-corners{
+    position:absolute; inset:24px 24px 0 24px; bottom:0;
+    pointer-events:none;
+  }
+  .frame-corners span{
+    position:absolute; width:22px; height:22px;
+    border-color:var(--ink-dim);
+    opacity:0.5;
+  }
+  .frame-corners .tl{ top:0; left:0; border-top:1.5px solid; border-left:1.5px solid; }
+  .frame-corners .tr{ top:0; right:0; border-top:1.5px solid; border-right:1.5px solid; }
+  .frame-corners .bl{ bottom:0; left:0; border-bottom:1.5px solid; border-left:1.5px solid; }
+  .frame-corners .br{ bottom:0; right:0; border-bottom:1.5px solid; border-right:1.5px solid; }
+
+  .artwork-wrap{
+    position:relative;
+    width:100%;
+    max-width:300px;
+    cursor:pointer;
+    transition:transform .3s ease;
+  }
+  .artwork-wrap:active{ transform:scale(0.97); }
+
+  .artwork{
+    width:100%; aspect-ratio:4/5;
+    border-radius:2px;
+    display:block;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+
+  .scan-hint{
+    text-align:center;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    color:var(--ink-dim);
+    margin-top:18px;
+  }
+
+  .lock-ring{
+    position:absolute; inset:-14px;
+    border:1.5px solid var(--gold);
+    border-radius:4px;
+    opacity:0;
+    transform:scale(1.06);
+    transition:opacity .35s ease, transform .35s ease;
+  }
+  .locked .lock-ring{ opacity:1; transform:scale(1); }
+  .locked .artwork{ filter:brightness(1.05); }
+
+  .tag{
+    position:absolute; top:-11px; left:-11px;
+    background:var(--gold); color:#141414;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px; font-weight:600; letter-spacing:0.06em;
+    padding:4px 8px; border-radius:2px;
+    opacity:0; transform:translateY(4px);
+    transition:opacity .3s ease .1s, transform .3s ease .1s;
+  }
+  .locked .tag{ opacity:1; transform:translateY(0); }
+
+  /* --- switcher for demo purposes --- */
+  .switcher{
+    display:flex; gap:10px; justify-content:center;
+    margin-top:22px;
+  }
+  .switcher button{
+    background:none; border:1px solid var(--line);
+    color:var(--ink-dim);
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px; letter-spacing:0.08em;
+    padding:7px 12px; border-radius:20px;
+    cursor:pointer;
+  }
+  .switcher button.active{
+    border-color:var(--gold); color:var(--gold);
+  }
+
+  /* --- bottom description panel --- */
+  .panel{
+    position:absolute; left:0; right:0; bottom:0;
+    background:linear-gradient(180deg, transparent, rgba(0,0,0,0.55) 18%, var(--panel) 40%);
+    padding:38px 26px 30px;
+    transform:translateY(100%);
+    transition:transform .5s cubic-bezier(.2,.9,.25,1);
+  }
+  .panel.show{ transform:translateY(0); }
+
+  .panel .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px; letter-spacing:0.16em;
+    color:var(--gold); margin-bottom:8px;
+  }
+  .panel h2{
+    font-family:'Zen Old Mincho', serif;
+    font-weight:600;
+    font-size:22px; line-height:1.4;
+    margin:0 0 4px;
+  }
+  .panel .meta{
+    font-size:12px; color:var(--ink-dim); margin-bottom:14px;
+  }
+  .panel p{
+    font-size:14px; line-height:1.9; color:#d8d3ca;
+    margin:0;
+  }
+  .panel .close{
+    position:absolute; top:14px; right:20px;
+    width:26px; height:26px; border-radius:50%;
+    border:1px solid var(--line); color:var(--ink-dim);
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px; cursor:pointer; background:none;
+  }
+
+  .footnote{
+    text-align:center;
+    font-family:'JetBrains Mono', monospace;
+    font-size:9.5px; letter-spacing:0.06em;
+    color:#5c5852;
+    padding:8px 20px 16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="topbar">
+    <span class="rec">LIVE VIEW</span>
+    <span>写真展 AR ガイド — DEMO</span>
+  </div>
+
+  <div class="viewfinder">
+    <div class="frame-corners">
+      <span class="tl"></span><span class="tr"></span>
+      <span class="bl"></span><span class="br"></span>
+    </div>
+
+    <div>
+      <div class="artwork-wrap" id="artworkWrap" onclick="toggleLock()">
+        <div class="lock-ring"></div>
+        <div class="tag">認識しました</div>
+        <svg class="artwork" id="artworkSVG" viewBox="0 0 400 500" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="scan-hint" id="hint">タップしてカメラでかざす動作をシミュレート</div>
+
+      <div class="switcher">
+        <button class="active" onclick="selectWork(0)">作品 01</button>
+        <button onclick="selectWork(1)">作品 02</button>
+        <button onclick="selectWork(2)">作品 03</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel">
+    <button class="close" onclick="toggleLock(true)">×</button>
+    <div class="eyebrow" id="pEyebrow">NO. 01 — SILENT COAST</div>
+    <h2 id="pTitle">凪の記憶</h2>
+    <div class="meta" id="pMeta">2023年 / 石巻 / ゼラチンシルバープリント</div>
+    <p id="pBody">夜明け前、まだ誰もいない砂浜で撮影した一枚。震災から十二年、変わらず寄せては返す波に、変わってしまった街の輪郭を重ねている。</p>
+  </div>
+
+  <div class="footnote">実機では、この画面をカメラ映像に置き換え、展示写真そのものをマーカーとして認識します</div>
+</div>
+
+<script>
+const works = [
+  {
+    palette: ['#2b3a42','#4c6672','#9db3ad','#e4ddc9'],
+    eyebrow: 'NO. 01 — SILENT COAST',
+    title: '凪の記憶',
+    meta: '2023年 / 石巻 / ゼラチンシルバープリント',
+    body: '夜明け前、まだ誰もいない砂浜で撮影した一枚。震災から十二年、変わらず寄せては返す波に、変わってしまった街の輪郭を重ねている。'
+  },
+  {
+    palette: ['#3a2a2f','#77433f','#c17f5a','#f0d9b5'],
+    eyebrow: 'NO. 02 — LAST SUMMER FESTIVAL',
+    title: '最後の夏祭り',
+    meta: '2021年 / 商店街 / インクジェットプリント',
+    body: '取り壊しが決まった商店街で開かれた、最後の夏祭り。提灯の灯りだけが、この日の記録として今も鮮明に残っている。'
+  },
+  {
+    palette: ['#1f2b1c','#3f5c38','#7c9b5f','#d8e0b8'],
+    eyebrow: 'NO. 03 — FIELD NOTES',
+    title: '棚田、六月',
+    meta: '2022年 / 中山間地域 / フィルム撮影',
+    body: '田植えを終えたばかりの棚田。水を張った一枚一枚が空を映し、集落の記憶を静かに反射している。'
+  }
+];
+
+let current = 0;
+let locked = false;
+
+function drawArtwork(i){
+  const p = works[i].palette;
+  const svg = document.getElementById('artworkSVG');
+  svg.innerHTML = `
+    <rect width="400" height="500" fill="${p[0]}"/>
+    <rect y="260" width="400" height="240" fill="${p[1]}"/>
+    <circle cx="300" cy="140" r="70" fill="${p[3]}" opacity="0.85"/>
+    <rect y="420" width="400" height="80" fill="${p[2]}" opacity="0.9"/>
+  `;
+}
+
+function selectWork(i){
+  current = i;
+  locked = false;
+  document.getElementById('artworkWrap').classList.remove('locked');
+  document.getElementById('panel').classList.remove('show');
+  document.getElementById('hint').textContent = 'タップしてカメラでかざす動作をシミュレート';
+  drawArtwork(i);
+  document.querySelectorAll('.switcher button').forEach((b,idx)=>{
+    b.classList.toggle('active', idx===i);
+  });
+}
+
+function toggleLock(forceClose){
+  const wrap = document.getElementById('artworkWrap');
+  const panel = document.getElementById('panel');
+  const hint = document.getElementById('hint');
+
+  if(forceClose === true || locked){
+    locked = false;
+    wrap.classList.remove('locked');
+    panel.classList.remove('show');
+    hint.textContent = 'タップしてカメラでかざす動作をシミュレート';
+    return;
+  }
+
+  locked = true;
+  wrap.classList.add('locked');
+  hint.textContent = 'マーカーを認識中…';
+
+  const w = works[current];
+  document.getElementById('pEyebrow').textContent = w.eyebrow;
+  document.getElementById('pTitle').textContent = w.title;
+  document.getElementById('pMeta').textContent = w.meta;
+  document.getElementById('pBody').textContent = w.body;
+
+  setTimeout(()=>{
+    if(locked){
+      panel.classList.add('show');
+      hint.textContent = '解説を表示中';
+    }
+  }, 550);
+}
+
+drawArtwork(0);
+</script>
+</body>
+</html>

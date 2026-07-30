@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>写真展 AR ガイド</title>
+
+<!-- MindAR + A-Frame (CDN) -->
+<script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; font-family:sans-serif; }
+
+  .description-panel{
+    position:fixed; left:0; right:0; bottom:0;
+    background:rgba(10,10,10,0.82);
+    color:#f2efe8;
+    padding:22px 24px 26px;
+    display:none;
+    z-index:999;
+  }
+  .description-panel h2{ margin:0 0 6px; font-size:19px; }
+  .description-panel p{ margin:0; font-size:14px; line-height:1.8; color:#d8d3ca; }
+
+  #startOverlay{
+    position:fixed; inset:0; background:#0c0c0d; color:#ece7df;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    z-index:1000; text-align:center; padding:24px;
+  }
+  #startOverlay button{
+    margin-top:20px; padding:12px 28px; border-radius:24px;
+    border:1px solid #c9a24a; color:#c9a24a; background:none; font-size:14px;
+  }
+</style>
+</head>
+<body>
+
+<!-- カメラ起動前のスタート画面(iOSはユーザー操作がないとカメラ許可が出ないため) -->
+<div id="startOverlay">
+  <div>
+    <h1 style="font-weight:500;">写真展 AR ガイド</h1>
+    <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
+  </div>
+  <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
+</div>
+
+<!-- ▼各写真の解説パネル。works配列と数を合わせて増減してください -->
+<div id="panel0" class="description-panel">
+  <h2>作品タイトル 1</h2>
+  <p>ここに1枚目の写真の解説文を入れます。</p>
+</div>
+<div id="panel1" class="description-panel">
+  <h2>作品タイトル 2</h2>
+  <p>ここに2枚目の写真の解説文を入れます。</p>
+</div>
+<div id="panel2" class="description-panel">
+  <h2>作品タイトル 3</h2>
+  <p>ここに3枚目の写真の解説文を入れます。</p>
+</div>
+
+<!--
+  imageTargetSrc は compile 済みの .mind ファイルを指します。
+  targets.mind は下記の手順で作成し、このHTMLと同じ場所に置いてください。
+-->
+<a-scene
+  mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiScanning: no;"
+  color-space="sRGB"
+  renderer="colorManagement: true, physicallyCorrectLights: true"
+  vr-mode-ui="enabled: false"
+  device-orientation-permission-ui="enabled: false"
+>
+  <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false"></a-camera>
+
+  <!-- targetIndex は compile 時の画像の並び順(0始まり)に対応します -->
+  <a-entity mindar-image-target="targetIndex: 0" id="target0"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 1" id="target1"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 2" id="target2"></a-entity>
+</a-scene>
+
+<script>
+  window.addEventListener('load', () => {
+    const sceneEl = document.querySelector('a-scene');
+    const startBtn = document.querySelector('#startOverlay button');
+
+    startBtn.addEventListener('click', () => {
+      const arSystem = sceneEl.systems['mindar-image-system'];
+      arSystem.start(); // カメラ起動 & 認識開始
+    });
+
+    const panels = [
+      document.querySelector('#panel0'),
+      document.querySelector('#panel1'),
+      document.querySelector('#panel2'),
+    ];
+    const targets = [
+      document.querySelector('#target0'),
+      document.querySelector('#target1'),
+      document.querySelector('#target2'),
+    ];
+
+    targets.forEach((targetEl, i) => {
+      targetEl.addEventListener('targetFound', () => { panels[i].style.display = 'block'; });
+      targetEl.addEventListener('targetLost',  () => { panels[i].style.display = 'none'; });
+    });
+  });
+</script>
+
+</body>
+</html>

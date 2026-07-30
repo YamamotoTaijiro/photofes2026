@@ -32,6 +32,10 @@
     margin-top:20px; padding:12px 28px; border-radius:24px;
     border:1px solid #c9a24a; color:#c9a24a; background:none; font-size:14px;
   }
+  #versionTag{
+    position:absolute; bottom:10px; right:14px;
+    font-size:11px; color:#5a564f; letter-spacing:0.05em;
+  }
 </style>
 </head>
 <body>
@@ -43,6 +47,7 @@
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
+  <div id="versionTag">v1.0</div>
 </div>
 
 <!-- ▼各写真の解説パネル。works配列と数を合わせて増減してください -->

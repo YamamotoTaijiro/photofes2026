@@ -47,7 +47,7 @@
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v1.0</div>
+  <div id="versionTag">v1.1</div>
 </div>
 
 <!-- ▼各写真の解説パネル。works配列と数を合わせて増減してください -->
@@ -67,9 +67,10 @@
 <!--
   imageTargetSrc は compile 済みの .mind ファイルを指します。
   targets.mind は下記の手順で作成し、このHTMLと同じ場所に置いてください。
+  末尾の ?v=... はキャッシュ回避用。targets.mind を更新したら versionTag と合わせて数字を上げてください。
 -->
 <a-scene
-  mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiScanning: no;"
+  mindar-image="imageTargetSrc: ./targets.mind?v=1.1; autoStart: false; uiScanning: no;"
   color-space="sRGB"
   renderer="colorManagement: true, physicallyCorrectLights: true"
   vr-mode-ui="enabled: false"

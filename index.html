@@ -47,7 +47,7 @@
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v1.3</div>
+  <div id="versionTag">v1.4</div>
 </div>
 
 <!-- ▼各写真の解説パネル。枚数を変える場合はJS内のWORK_COUNTと合わせて増減してください -->
@@ -308,6 +308,19 @@
   <a-entity mindar-image-target="targetIndex: 46" id="target46"></a-entity>
   <a-entity mindar-image-target="targetIndex: 47" id="target47"></a-entity>
 </a-scene>
+
+<!--
+  targets.mindは50MB超あり、カメラ起動ボタンを押してからMindARが読み込むと数秒待たされる。
+  ページを開いた直後(スタート画面表示中)からダウンロードを始めておき、ブラウザキャッシュに
+  乗せておくことで、MindARが実際に読み込む際は再ダウンロードなしで済むようにする。
+-->
+<script>
+  (() => {
+    const src = document.querySelector('a-scene')
+      .getAttribute('mindar-image').match(/imageTargetSrc:\s*([^;]+)/)[1].trim();
+    fetch(src).catch(() => {});
+  })();
+</script>
 
 <script>
   window.addEventListener('load', () => {

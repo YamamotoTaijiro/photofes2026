@@ -22,6 +22,9 @@
   }
   .description-panel h2{ margin:0 0 6px; font-size:19px; }
   .description-panel p{ margin:0; font-size:14px; line-height:1.8; color:#d8d3ca; }
+  .description-panel .credit{
+    margin-top:10px; font-size:12px; text-align:right; color:#9a958c;
+  }
 
   #startOverlay{
     position:fixed; inset:0; background:#0c0c0d; color:#ece7df;
@@ -47,7 +50,7 @@
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v1.6</div>
+  <div id="versionTag">v1.7</div>
 </div>
 
 <!-- ▼各写真の解説パネル。枚数を変える場合はJS内のWORK_COUNTと合わせて増減してください -->
@@ -112,20 +115,23 @@
   <p>ここに15枚目の写真の解説文を入れます。</p>
 </div>
 <div id="panel15" class="description-panel">
-  <h2>作品タイトル 16</h2>
-  <p>ここに16枚目の写真の解説文を入れます。</p>
+  <h2>信州御代田 龍神太鼓保存会「鼓響」</h2>
+  <p>佐久市 市民交流広場のイベントにて</p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
 </div>
 <div id="panel16" class="description-panel">
-  <h2>作品タイトル 17</h2>
-  <p>ここに17枚目の写真の解説文を入れます。</p>
+  <h2>信州御代田 龍神太鼓保存会「鼓響」</h2>
+  <p>佐久市 市民交流広場のイベントにて</p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
 </div>
 <div id="panel17" class="description-panel">
   <h2>作品タイトル 18</h2>
   <p>ここに18枚目の写真の解説文を入れます。</p>
 </div>
 <div id="panel18" class="description-panel">
-  <h2>作品タイトル 19</h2>
-  <p>ここに19枚目の写真の解説文を入れます。</p>
+  <h2>濱野皮革工藝株式会社</h2>
+  <p>軽井沢工場にて</p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
 </div>
 <div id="panel19" class="description-panel">
   <h2>作品タイトル 20</h2>
@@ -219,7 +225,8 @@
   <h2>ある昼下がりのゴカラボの様子</h2>
 </div>
 <div id="panel42" class="description-panel">
-  <h2>客室のインスペクション。ガラスの底まで丁寧に。</h2>
+  <h2>THE HIRAMATSU 軽井沢 御代田</h2>
+  <p>客室のインスペクション。ガラスの底まで丁寧に。</p>
 </div>
 <div id="panel43" class="description-panel">
   <h2>作品タイトル 44</h2>

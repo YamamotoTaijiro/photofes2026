@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
 <style>
-  html, body { margin:0; height:100%; overflow:hidden; font-family:sans-serif; }
+  html, body { margin:0; height:100%; overflow:hidden; font-family:sans-serif; touch-action:none; }
 
   .description-panel{
     position:fixed; left:0; right:0; bottom:0;
@@ -53,21 +53,16 @@
     display:none; z-index:999;
   }
 
-  /* 遠くの写真を絞り込んで認識させるためのズーム操作。カメラ起動後のみ表示する */
-  #zoomControl{
-    position:fixed; right:14px; top:50%; transform:translateY(-50%);
-    display:none; flex-direction:column; align-items:center; gap:10px;
+  /* 遠くの写真を絞り込んで認識させるためのズームレベル表示。
+     ピンチ操作中だけ画面中央にふわっと出て、操作をやめると自動的に消える */
+  #zoomLevel{
+    position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
+    font-size:16px; color:#f2efe8; background:rgba(10,10,10,0.6);
+    padding:8px 18px; border-radius:18px;
+    opacity:0; pointer-events:none; transition:opacity 0.25s ease;
     z-index:997;
   }
-  #zoomControl button{
-    width:44px; height:44px; border-radius:50%;
-    border:1px solid rgba(242,239,232,0.5); background:rgba(10,10,10,0.55);
-    color:#f2efe8; font-size:22px; line-height:1;
-  }
-  #zoomLevel{
-    font-size:12px; color:#f2efe8; background:rgba(10,10,10,0.55);
-    padding:2px 8px; border-radius:10px;
-  }
+  #zoomLevel.visible{ opacity:1; }
 </style>
 </head>
 <body>
@@ -79,17 +74,13 @@
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v1.13</div>
+  <div id="versionTag">zoom-v2.0</div>
 </div>
 
 <div id="multiNotice">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</div>
 
-<!-- 写真まで距離がある時に、認識させる1枚を絞り込みやすくするズーム操作 -->
-<div id="zoomControl">
-  <button id="zoomIn" aria-label="ズームイン">＋</button>
-  <div id="zoomLevel">1.0x</div>
-  <button id="zoomOut" aria-label="ズームアウト">－</button>
-</div>
+<!-- 写真まで距離がある時に、画面をピンチイン/ピンチアウトすると認識させる1枚を絞り込める -->
+<div id="zoomLevel">1.0x</div>
 
 <!-- ▼各写真の解説パネル。枚数を変える場合はJS内のWORK_COUNTと合わせて増減してください -->
 <div id="panel0" class="description-panel">
@@ -405,7 +396,6 @@
   window.CameraZoom = (() => {
     const MIN_ZOOM = 1;
     const MAX_ZOOM = 3;
-    const ZOOM_STEP = 0.5;
     let zoom = MIN_ZOOM;
 
     const realGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
@@ -440,9 +430,48 @@
 
     return {
       get: () => zoom,
-      increase: () => { zoom = Math.min(MAX_ZOOM, zoom + ZOOM_STEP); return zoom; },
-      decrease: () => { zoom = Math.max(MIN_ZOOM, zoom - ZOOM_STEP); return zoom; },
+      set: (value) => { zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value)); return zoom; },
     };
+  })();
+</script>
+
+<!-- 2本指のピンチイン/ピンチアウトでCameraZoomのズーム値を変える -->
+<script>
+  (() => {
+    const zoomLevelEl = document.querySelector('#zoomLevel');
+    let pinchStartDist = null;
+    let pinchStartZoom = 1;
+    let hideTimer = null;
+
+    function touchDistance(t1, t2) {
+      return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+    }
+
+    function showZoomLevel(zoom) {
+      zoomLevelEl.textContent = zoom.toFixed(1) + 'x';
+      zoomLevelEl.classList.add('visible');
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => zoomLevelEl.classList.remove('visible'), 1200);
+    }
+
+    window.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        pinchStartDist = touchDistance(e.touches[0], e.touches[1]);
+        pinchStartZoom = window.CameraZoom.get();
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && pinchStartDist) {
+        e.preventDefault();
+        const scale = touchDistance(e.touches[0], e.touches[1]) / pinchStartDist;
+        showZoomLevel(window.CameraZoom.set(pinchStartZoom * scale));
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) pinchStartDist = null;
+    });
   })();
 </script>
 
@@ -468,7 +497,6 @@
     startBtn.addEventListener('click', () => {
       const arSystem = sceneEl.systems['mindar-image-system'];
       arSystem.start(); // カメラ起動 & 認識開始
-      document.querySelector('#zoomControl').style.display = 'flex';
 
       // スマホはボタンタップ直後にアドレスバーが収縮して画面サイズが変わることがあり、
       // MindARが起動直後の(収縮前の)小さいサイズでカメラ映像を配置してしまうことがある。
@@ -477,11 +505,6 @@
         setTimeout(() => window.dispatchEvent(new Event('resize')), delay);
       });
     });
-
-    const zoomLevelEl = document.querySelector('#zoomLevel');
-    const refreshZoomLabel = () => { zoomLevelEl.textContent = window.CameraZoom.get().toFixed(1) + 'x'; };
-    document.querySelector('#zoomIn').addEventListener('click', () => { window.CameraZoom.increase(); refreshZoomLabel(); });
-    document.querySelector('#zoomOut').addEventListener('click', () => { window.CameraZoom.decrease(); refreshZoomLabel(); });
 
     const panels = Array.from({ length: WORK_COUNT }, (_, i) => document.querySelector(`#panel${i}`));
     const targets = Array.from({ length: WORK_COUNT }, (_, i) => document.querySelector(`#target${i}`));

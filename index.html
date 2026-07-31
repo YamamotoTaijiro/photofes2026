@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
 <style>
-  html, body { margin:0; height:100%; overflow:hidden; font-family:sans-serif; }
+  html, body { margin:0; height:100%; overflow:hidden; font-family:sans-serif; touch-action:none; }
 
   .description-panel{
     position:fixed; left:0; right:0; bottom:0;
@@ -52,6 +52,17 @@
     padding:10px 18px; border-radius:20px; font-size:13px; text-align:center;
     display:none; z-index:999;
   }
+
+  /* 遠くの写真を絞り込んで認識させるためのズームレベル表示。
+     ピンチ操作中だけ画面中央にふわっと出て、操作をやめると自動的に消える */
+  #zoomLevel{
+    position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
+    font-size:16px; color:#f2efe8; background:rgba(10,10,10,0.6);
+    padding:8px 18px; border-radius:18px;
+    opacity:0; pointer-events:none; transition:opacity 0.25s ease;
+    z-index:997;
+  }
+  #zoomLevel.visible{ opacity:1; }
 </style>
 </head>
 <body>
@@ -63,10 +74,13 @@
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v1.12</div>
+  <div id="versionTag">v2.0</div>
 </div>
 
 <div id="multiNotice">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</div>
+
+<!-- 写真まで距離がある時に、画面をピンチイン/ピンチアウトすると認識させる1枚を絞り込める -->
+<div id="zoomLevel">1.0x</div>
 
 <!-- ▼各写真の解説パネル。枚数を変える場合はJS内のWORK_COUNTと合わせて増減してください -->
 <div id="panel0" class="description-panel">
@@ -370,6 +384,96 @@
   <a-entity mindar-image-target="targetIndex: 46" id="target46"></a-entity>
   <a-entity mindar-image-target="targetIndex: 47" id="target47"></a-entity>
 </a-scene>
+
+<!--
+  遠くの写真を絞り込んで認識させるためのズーム機能。
+  MindARが内部でnavigator.mediaDevices.getUserMedia()を呼んでカメラ映像を取得する前に、
+  この関数を「元のカメラ映像をcanvasに描き、中心部分だけを切り出して拡大したもの」を
+  返すものに差し替えておく。これによりMindAR自身が解析する映像そのものが拡大されるため、
+  画面表示だけを拡大する方法と違って、実際の認識の絞り込みに効果がある。
+-->
+<script>
+  window.CameraZoom = (() => {
+    const MIN_ZOOM = 1;
+    const MAX_ZOOM = 3;
+    let zoom = MIN_ZOOM;
+
+    const realGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+
+    navigator.mediaDevices.getUserMedia = async (constraints) => {
+      const stream = await realGetUserMedia(constraints);
+      if (!constraints || !constraints.video) return stream;
+
+      const sourceVideo = document.createElement('video');
+      sourceVideo.muted = true;
+      sourceVideo.playsInline = true;
+      sourceVideo.srcObject = stream;
+      await sourceVideo.play();
+      if (!sourceVideo.videoWidth) {
+        await new Promise(resolve => sourceVideo.addEventListener('loadedmetadata', resolve, { once: true }));
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = sourceVideo.videoWidth;
+      canvas.height = sourceVideo.videoHeight;
+      const ctx = canvas.getContext('2d');
+
+      (function draw() {
+        const sw = canvas.width / zoom;
+        const sh = canvas.height / zoom;
+        ctx.drawImage(sourceVideo, (canvas.width - sw) / 2, (canvas.height - sh) / 2, sw, sh, 0, 0, canvas.width, canvas.height);
+        requestAnimationFrame(draw);
+      })();
+
+      return canvas.captureStream(30);
+    };
+
+    return {
+      get: () => zoom,
+      set: (value) => { zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value)); return zoom; },
+    };
+  })();
+</script>
+
+<!-- 2本指のピンチイン/ピンチアウトでCameraZoomのズーム値を変える -->
+<script>
+  (() => {
+    const zoomLevelEl = document.querySelector('#zoomLevel');
+    let pinchStartDist = null;
+    let pinchStartZoom = 1;
+    let hideTimer = null;
+
+    function touchDistance(t1, t2) {
+      return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+    }
+
+    function showZoomLevel(zoom) {
+      zoomLevelEl.textContent = zoom.toFixed(1) + 'x';
+      zoomLevelEl.classList.add('visible');
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => zoomLevelEl.classList.remove('visible'), 1200);
+    }
+
+    window.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        pinchStartDist = touchDistance(e.touches[0], e.touches[1]);
+        pinchStartZoom = window.CameraZoom.get();
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && pinchStartDist) {
+        e.preventDefault();
+        const scale = touchDistance(e.touches[0], e.touches[1]) / pinchStartDist;
+        showZoomLevel(window.CameraZoom.set(pinchStartZoom * scale));
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) pinchStartDist = null;
+    });
+  })();
+</script>
 
 <!--
   targets.mindは50MB超あり、カメラ起動ボタンを押してからMindARが読み込むと数秒待たされる。

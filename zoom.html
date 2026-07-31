@@ -52,6 +52,22 @@
     padding:10px 18px; border-radius:20px; font-size:13px; text-align:center;
     display:none; z-index:999;
   }
+
+  /* 遠くの写真を絞り込んで認識させるためのズーム操作。カメラ起動後のみ表示する */
+  #zoomControl{
+    position:fixed; right:14px; top:50%; transform:translateY(-50%);
+    display:none; flex-direction:column; align-items:center; gap:10px;
+    z-index:997;
+  }
+  #zoomControl button{
+    width:44px; height:44px; border-radius:50%;
+    border:1px solid rgba(242,239,232,0.5); background:rgba(10,10,10,0.55);
+    color:#f2efe8; font-size:22px; line-height:1;
+  }
+  #zoomLevel{
+    font-size:12px; color:#f2efe8; background:rgba(10,10,10,0.55);
+    padding:2px 8px; border-radius:10px;
+  }
 </style>
 </head>
 <body>
@@ -63,10 +79,17 @@
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v1.12</div>
+  <div id="versionTag">v1.13</div>
 </div>
 
 <div id="multiNotice">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</div>
+
+<!-- 写真まで距離がある時に、認識させる1枚を絞り込みやすくするズーム操作 -->
+<div id="zoomControl">
+  <button id="zoomIn" aria-label="ズームイン">＋</button>
+  <div id="zoomLevel">1.0x</div>
+  <button id="zoomOut" aria-label="ズームアウト">－</button>
+</div>
 
 <!-- ▼各写真の解説パネル。枚数を変える場合はJS内のWORK_COUNTと合わせて増減してください -->
 <div id="panel0" class="description-panel">
@@ -372,6 +395,58 @@
 </a-scene>
 
 <!--
+  遠くの写真を絞り込んで認識させるためのズーム機能。
+  MindARが内部でnavigator.mediaDevices.getUserMedia()を呼んでカメラ映像を取得する前に、
+  この関数を「元のカメラ映像をcanvasに描き、中心部分だけを切り出して拡大したもの」を
+  返すものに差し替えておく。これによりMindAR自身が解析する映像そのものが拡大されるため、
+  画面表示だけを拡大する方法と違って、実際の認識の絞り込みに効果がある。
+-->
+<script>
+  window.CameraZoom = (() => {
+    const MIN_ZOOM = 1;
+    const MAX_ZOOM = 3;
+    const ZOOM_STEP = 0.5;
+    let zoom = MIN_ZOOM;
+
+    const realGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+
+    navigator.mediaDevices.getUserMedia = async (constraints) => {
+      const stream = await realGetUserMedia(constraints);
+      if (!constraints || !constraints.video) return stream;
+
+      const sourceVideo = document.createElement('video');
+      sourceVideo.muted = true;
+      sourceVideo.playsInline = true;
+      sourceVideo.srcObject = stream;
+      await sourceVideo.play();
+      if (!sourceVideo.videoWidth) {
+        await new Promise(resolve => sourceVideo.addEventListener('loadedmetadata', resolve, { once: true }));
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = sourceVideo.videoWidth;
+      canvas.height = sourceVideo.videoHeight;
+      const ctx = canvas.getContext('2d');
+
+      (function draw() {
+        const sw = canvas.width / zoom;
+        const sh = canvas.height / zoom;
+        ctx.drawImage(sourceVideo, (canvas.width - sw) / 2, (canvas.height - sh) / 2, sw, sh, 0, 0, canvas.width, canvas.height);
+        requestAnimationFrame(draw);
+      })();
+
+      return canvas.captureStream(30);
+    };
+
+    return {
+      get: () => zoom,
+      increase: () => { zoom = Math.min(MAX_ZOOM, zoom + ZOOM_STEP); return zoom; },
+      decrease: () => { zoom = Math.max(MIN_ZOOM, zoom - ZOOM_STEP); return zoom; },
+    };
+  })();
+</script>
+
+<!--
   targets.mindは50MB超あり、カメラ起動ボタンを押してからMindARが読み込むと数秒待たされる。
   ページを開いた直後(スタート画面表示中)からダウンロードを始めておき、ブラウザキャッシュに
   乗せておくことで、MindARが実際に読み込む際は再ダウンロードなしで済むようにする。
@@ -393,6 +468,7 @@
     startBtn.addEventListener('click', () => {
       const arSystem = sceneEl.systems['mindar-image-system'];
       arSystem.start(); // カメラ起動 & 認識開始
+      document.querySelector('#zoomControl').style.display = 'flex';
 
       // スマホはボタンタップ直後にアドレスバーが収縮して画面サイズが変わることがあり、
       // MindARが起動直後の(収縮前の)小さいサイズでカメラ映像を配置してしまうことがある。
@@ -401,6 +477,11 @@
         setTimeout(() => window.dispatchEvent(new Event('resize')), delay);
       });
     });
+
+    const zoomLevelEl = document.querySelector('#zoomLevel');
+    const refreshZoomLabel = () => { zoomLevelEl.textContent = window.CameraZoom.get().toFixed(1) + 'x'; };
+    document.querySelector('#zoomIn').addEventListener('click', () => { window.CameraZoom.increase(); refreshZoomLabel(); });
+    document.querySelector('#zoomOut').addEventListener('click', () => { window.CameraZoom.decrease(); refreshZoomLabel(); });
 
     const panels = Array.from({ length: WORK_COUNT }, (_, i) => document.querySelector(`#panel${i}`));
     const targets = Array.from({ length: WORK_COUNT }, (_, i) => document.querySelector(`#target${i}`));

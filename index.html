@@ -17,8 +17,13 @@
     background:rgba(10,10,10,0.82);
     color:#f2efe8;
     padding:22px 24px 26px;
-    display:none;
     z-index:999;
+    transform:translateY(115%);
+    transition:transform 0.3s ease-in;
+  }
+  .description-panel.visible{
+    transform:translateY(0);
+    transition:transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .description-panel h2{ margin:0 0 6px; font-size:19px; }
   .description-panel p{ margin:0; font-size:14px; line-height:1.8; color:#d8d3ca; }
@@ -40,20 +45,6 @@
     font-size:11px; color:#5a564f; letter-spacing:0.05em;
   }
 
-  /* 写真を認識した瞬間に光る枠。説明パネルは写真から外れても消さずに維持するので、
-     「今まさに認識した」ことをこのフラッシュで伝える */
-  #recognizedFlash{
-    position:fixed; inset:0; pointer-events:none; z-index:998;
-    border:8px solid rgba(201,162,74,0);
-  }
-  #recognizedFlash.flash-active{
-    animation: recognizedPulse 0.8s ease-out;
-  }
-  @keyframes recognizedPulse{
-    0%   { border-color: rgba(201,162,74,0.9); }
-    100% { border-color: rgba(201,162,74,0); }
-  }
-
   /* 複数の写真を同時に認識した時、どの説明か分からなくなるのを避けるための通知 */
   #multiNotice{
     position:fixed; top:18px; left:50%; transform:translateX(-50%);
@@ -72,10 +63,9 @@
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v1.11</div>
+  <div id="versionTag">v1.12</div>
 </div>
 
-<div id="recognizedFlash"></div>
 <div id="multiNotice">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</div>
 
 <!-- ▼各写真の解説パネル。枚数を変える場合はJS内のWORK_COUNTと合わせて増減してください -->
@@ -414,21 +404,17 @@
 
     const panels = Array.from({ length: WORK_COUNT }, (_, i) => document.querySelector(`#panel${i}`));
     const targets = Array.from({ length: WORK_COUNT }, (_, i) => document.querySelector(`#target${i}`));
-    const recognizedFlash = document.querySelector('#recognizedFlash');
     const multiNotice = document.querySelector('#multiNotice');
 
     // 現在カメラに映っている(targetFound中の)写真のindex集合。
     // 説明パネルは写真から外れても消さず、次に1枚だけ認識できた時に切り替える。
     const foundIndices = new Set();
 
-    function showPanel(idx) {
-      panels.forEach((p, i) => { p.style.display = (i === idx) ? 'block' : 'none'; });
-    }
-
-    function flashRecognized() {
-      recognizedFlash.classList.remove('flash-active');
-      void recognizedFlash.offsetWidth; // reflowさせてアニメーションを再始動させる
-      recognizedFlash.classList.add('flash-active');
+    // 表示中のパネルを一旦下げ、少し間を置いてから該当パネルを下から迫り出させる。
+    // 同じ写真を再認識した場合も一度下げてから出すことで「今認識した」ことが伝わる。
+    function revealPanel(idx) {
+      panels.forEach(p => p.classList.remove('visible'));
+      setTimeout(() => { panels[idx].classList.add('visible'); }, 300);
     }
 
     function updateMultiNotice() {
@@ -438,11 +424,10 @@
     targets.forEach((targetEl, i) => {
       targetEl.addEventListener('targetFound', () => {
         foundIndices.add(i);
-        // 同時に1枚だけ認識できている時だけ、その説明に切り替えて認識エフェクトを出す。
+        // 同時に1枚だけ認識できている時だけ、その説明に切り替える。
         // 2枚以上同時に認識している間はどの説明か分からなくなるので切り替えない。
         if (foundIndices.size === 1) {
-          showPanel(i);
-          flashRecognized();
+          revealPanel(i);
         }
         updateMultiNotice();
       });
@@ -452,8 +437,7 @@
         // 2枚同時認識から1枚に絞られた場合は、残った1枚の説明に切り替える。
         if (foundIndices.size === 1) {
           const remaining = foundIndices.values().next().value;
-          showPanel(remaining);
-          flashRecognized();
+          revealPanel(remaining);
         }
         updateMultiNotice();
       });

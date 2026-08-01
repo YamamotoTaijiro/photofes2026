@@ -1,0 +1,8 @@
+name = "photofes2026-counter"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "photofes2026-counter"
+database_id = "c18a29e3-2ccd-435e-a396-0444202fdf5b"

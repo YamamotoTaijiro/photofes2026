@@ -74,7 +74,7 @@
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v2.3</div>
+  <div id="versionTag">v2.4</div>
 </div>
 
 <div id="multiNotice">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</div>
@@ -521,12 +521,23 @@
     // 説明パネルは写真から外れても消さず、次に1枚だけ認識できた時に切り替える。
     const foundIndices = new Set();
 
-    // どの写真が多く見られたかをCloudflare Workers + D1に記録する。
+    // どの写真が多く見られたか、何人来場したかをCloudflare Workers + D1に記録する。
+    // 端末ごとのランダムIDをlocalStorageに保存し、ログに含めることでユニーク来場者数を
+    // 推定できるようにする(会場Wi-Fiで複数人が同じIPを共有し得るため、IPだけでは数えない)。
     // sendBeaconは送信結果を待たず、失敗してもAR体験自体には影響しない。
     const COUNTER_URL = 'https://photofes2026-counter.taijiro.workers.dev/track';
+    function getClientId() {
+      let id = localStorage.getItem('photofes-client-id');
+      if (!id) {
+        id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+        localStorage.setItem('photofes-client-id', id);
+      }
+      return id;
+    }
+    const clientId = getClientId();
     function trackView(idx) {
       try {
-        navigator.sendBeacon(COUNTER_URL, JSON.stringify({ photo: idx }));
+        navigator.sendBeacon(COUNTER_URL, JSON.stringify({ photo: idx, client: clientId }));
       } catch {}
     }
 

@@ -64,10 +64,13 @@
   }
   #zoomLevel.visible{ opacity:1; }
 
-  /* 言語切り替え。デフォルトは日本語表示、body.lang-enが付くと英語表示に切り替わる */
+  /* 言語切り替え。デフォルトは日本語表示、<html lang="en">の時だけ英語表示に切り替わる。
+     CSSクラスではなくhtml要素のlang属性をフックにしているのは、
+     bodyに"lang-en"というクラスを付ける方式だと、そのクラス自体がbody要素にも
+     マッチしてしまいページ全体が非表示になる事故があったため */
   .lang-en{ display:none; }
-  body.lang-en .lang-en{ display:inline; }
-  body.lang-en .lang-ja{ display:none; }
+  html[lang="en"] .lang-en{ display:inline; }
+  html[lang="en"] .lang-ja{ display:none; }
 
   #langToggle{
     display:flex; gap:8px; margin-top:18px;
@@ -100,7 +103,7 @@
   <button onclick="document.getElementById('startOverlay').style.display='none'">
     <span class="lang-ja">カメラを起動する</span><span class="lang-en">Start Camera</span>
   </button>
-  <div id="versionTag">i18n-v1.1</div>
+  <div id="versionTag">i18n-v1.2</div>
 </div>
 
 <div id="multiNotice">
@@ -533,7 +536,6 @@
 
     function applyLang(lang) {
       currentLang = lang;
-      document.body.classList.toggle('lang-en', lang === 'en');
       document.documentElement.lang = lang;
       document.title = TITLE_TEXT[lang];
       document.querySelectorAll('#langToggle button').forEach(b => {

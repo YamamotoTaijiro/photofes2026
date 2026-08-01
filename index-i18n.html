@@ -100,10 +100,10 @@
     <button type="button" data-lang="ja">日本語</button>
     <button type="button" data-lang="en">English</button>
   </div>
-  <button onclick="document.getElementById('startOverlay').style.display='none'">
+  <button id="startCameraBtn" onclick="document.getElementById('startOverlay').style.display='none'">
     <span class="lang-ja">カメラを起動する</span><span class="lang-en">Start Camera</span>
   </button>
-  <div id="versionTag">i18n-v1.3</div>
+  <div id="versionTag">i18n-v1.4</div>
 </div>
 
 <div id="multiNotice">
@@ -526,7 +526,7 @@
 <script>
   window.addEventListener('load', () => {
     const sceneEl = document.querySelector('a-scene');
-    const startBtn = document.querySelector('#startOverlay button');
+    const startBtn = document.querySelector('#startCameraBtn');
     const WORK_COUNT = 48; // 写真(パネル・ターゲット)の枚数。増減時はHTML側のpanel/targetも合わせて増減してください
 
     // 表示言語の切り替え(日本語/英語)。localStorageに保存して次回訪問時も引き継ぎ、

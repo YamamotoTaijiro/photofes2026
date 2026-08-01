@@ -74,7 +74,7 @@
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">counter-v2.3</div>
+  <div id="versionTag">v2.2</div>
 </div>
 
 <div id="multiNotice">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</div>
@@ -520,23 +520,11 @@
     // 説明パネルは写真から外れても消さず、次に1枚だけ認識できた時に切り替える。
     const foundIndices = new Set();
 
-    // どの写真が多く見られたかをCloudflare Workers + D1に記録する。
-    // sendBeaconは送信結果を待たず、失敗してもAR体験自体には影響しない。
-    const COUNTER_URL = 'https://photofes2026-counter.taijiro.workers.dev/track';
-    function trackView(idx) {
-      try {
-        navigator.sendBeacon(COUNTER_URL, JSON.stringify({ photo: idx }));
-      } catch {}
-    }
-
     // 表示中のパネルを一旦下げ、少し間を置いてから該当パネルを下から迫り出させる。
     // 同じ写真を再認識した場合も一度下げてから出すことで「今認識した」ことが伝わる。
     function revealPanel(idx) {
       panels.forEach(p => p.classList.remove('visible'));
-      setTimeout(() => {
-        panels[idx].classList.add('visible');
-        trackView(idx);
-      }, 300);
+      setTimeout(() => { panels[idx].classList.add('visible'); }, 300);
     }
 
     function updateMultiNotice() {

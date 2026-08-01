@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>写真展 AR ガイド</title>
+
+<!-- MindAR + A-Frame (CDN) -->
+<script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; font-family:sans-serif; touch-action:none; }
+
+  .description-panel{
+    position:fixed; left:0; right:0; bottom:0;
+    background:rgba(10,10,10,0.82);
+    color:#f2efe8;
+    padding:22px 24px 26px;
+    z-index:999;
+    transform:translateY(115%);
+    transition:transform 0.3s ease-in;
+  }
+  .description-panel.visible{
+    transform:translateY(0);
+    transition:transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .description-panel h2{ margin:0 0 6px; font-size:19px; }
+  .description-panel p{ margin:0; font-size:14px; line-height:1.8; color:#d8d3ca; }
+  .description-panel .credit{
+    margin-top:10px; font-size:12px; text-align:right; color:#9a958c;
+  }
+
+  #startOverlay{
+    position:fixed; inset:0; background:#0c0c0d; color:#ece7df;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    z-index:1000; text-align:center; padding:24px;
+  }
+  #startOverlay button{
+    margin-top:20px; padding:12px 28px; border-radius:24px;
+    border:1px solid #c9a24a; color:#c9a24a; background:none; font-size:14px;
+  }
+  #versionTag{
+    position:absolute; bottom:10px; right:14px;
+    font-size:11px; color:#5a564f; letter-spacing:0.05em;
+  }
+
+  /* 複数の写真を同時に認識した時、どの説明か分からなくなるのを避けるための通知 */
+  #multiNotice{
+    position:fixed; top:18px; left:50%; transform:translateX(-50%);
+    max-width:80%; background:rgba(10,10,10,0.82); color:#f2efe8;
+    padding:10px 18px; border-radius:20px; font-size:13px; text-align:center;
+    display:none; z-index:999;
+  }
+
+  /* 遠くの写真を絞り込んで認識させるためのズームレベル表示。
+     ピンチ操作中だけ画面中央にふわっと出て、操作をやめると自動的に消える */
+  #zoomLevel{
+    position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
+    font-size:16px; color:#f2efe8; background:rgba(10,10,10,0.6);
+    padding:8px 18px; border-radius:18px;
+    opacity:0; pointer-events:none; transition:opacity 0.25s ease;
+    z-index:997;
+  }
+  #zoomLevel.visible{ opacity:1; }
+
+  /* 言語切り替え。デフォルトは日本語表示、body.lang-enが付くと英語表示に切り替わる */
+  .lang-en{ display:none; }
+  body.lang-en .lang-en{ display:inline; }
+  body.lang-en .lang-ja{ display:none; }
+
+  #langToggle{
+    display:flex; gap:8px; margin-top:18px;
+  }
+  #langToggle button{
+    padding:6px 16px; border-radius:16px; font-size:13px;
+    border:1px solid #5a564f; color:#8b8681; background:none;
+  }
+  #langToggle button.active{
+    border-color:#c9a24a; color:#c9a24a;
+  }
+</style>
+</head>
+<body>
+
+<!-- カメラ起動前のスタート画面(iOSはユーザー操作がないとカメラ許可が出ないため) -->
+<div id="startOverlay">
+  <div>
+    <h1 style="font-weight:500;">
+      <span class="lang-ja">写真展 AR ガイド</span><span class="lang-en">Photo Exhibition AR Guide</span>
+    </h1>
+    <p style="color:#8b8681;">
+      <span class="lang-ja">展示写真にカメラをかざすと解説が表示されます</span><span class="lang-en">Point your camera at an exhibited photo to see its description</span>
+    </p>
+  </div>
+  <div id="langToggle">
+    <button type="button" data-lang="ja">日本語</button>
+    <button type="button" data-lang="en">English</button>
+  </div>
+  <button onclick="document.getElementById('startOverlay').style.display='none'">
+    <span class="lang-ja">カメラを起動する</span><span class="lang-en">Start Camera</span>
+  </button>
+  <div id="versionTag">i18n-v1.0</div>
+</div>
+
+<div id="multiNotice">
+  <span class="lang-ja">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</span>
+  <span class="lang-en">Multiple photos detected. Move closer so only one is in view.</span>
+</div>
+
+<!-- 写真まで距離がある時に、画面をピンチイン/ピンチアウトすると認識させる1枚を絞り込める -->
+<div id="zoomLevel">1.0x</div>
+
+<!-- ▼各写真の解説パネル。枚数を変える場合はJS内のWORK_COUNTと合わせて増減してください -->
+<div id="panel0" class="description-panel">
+  <h2><span class="lang-ja">ゴカラボ</span><span class="lang-en">GokaLab</span></h2>
+  <p><span class="lang-ja">真剣に電話で打ち合わせするお父さんを、静かに見守って待つお子さんのかわいさにシャッターを切りました</span><span class="lang-en">The father is deep in a serious phone call, while his child waits quietly nearby — it was that child's charm that caught the photographer's eye.</span></p>
+  <p class="credit">撮影: 吉田達矢 YOSHIDA Tatsuya</p>
+</div>
+<div id="panel1" class="description-panel">
+  <h2><span class="lang-ja">あさま動物病院</span><span class="lang-en">Asama Animal Hospital</span></h2>
+  <p><span class="lang-ja">健康診断してるところなんですよー、と説明頂きました。</span><span class="lang-en">We were told, “This is a health checkup in progress.”</span></p>
+  <p class="credit">撮影: 吉田達矢 YOSHIDA Tatsuya</p>
+</div>
+<div id="panel2" class="description-panel">
+  <h2><span class="lang-ja">あさま動物病院</span><span class="lang-en">Asama Animal Hospital</span></h2>
+  <p><span class="lang-ja">レーザーで治療中の院長先生。</span><span class="lang-en">The head veterinarian performing laser treatment.</span></p>
+  <p class="credit">撮影: 吉田達矢 YOSHIDA Tatsuya</p>
+</div>
+<div id="panel3" class="description-panel">
+  <h2><span class="lang-ja">あさま動物病院</span><span class="lang-en">Asama Animal Hospital</span></h2>
+  <p><span class="lang-ja">ミルクボランティアの少年に優しくアドバイスされてます</span><span class="lang-en">Getting gentle advice from a young milk-feeding volunteer.</span></p>
+  <p class="credit">撮影: 吉田達矢 YOSHIDA Tatsuya</p>
+</div>
+<div id="panel4" class="description-panel">
+  <h2><span class="lang-ja">濱野皮革工藝株式会社</span><span class="lang-en">Hamano Leather Craft Co., Ltd.</span></h2>
+  <p><span class="lang-ja">切り出した革の厚みを部分的に調整する革漉きの工程</span><span class="lang-en">The leather-splitting process, adjusting the thickness of cut leather in sections.</span></p>
+  <p class="credit">撮影: 鈴木優介 Yusuke Suzuki</p>
+</div>
+<div id="panel5" class="description-panel">
+  <h2><span class="lang-ja">濱野皮革工藝株式会社</span><span class="lang-en">Hamano Leather Craft Co., Ltd.</span></h2>
+  <p><span class="lang-ja">革部品を縫い合わせる工程</span><span class="lang-en">Sewing the leather pieces together.</span></p>
+  <p class="credit">撮影: 鈴木優介 Yusuke Suzuki</p>
+</div>
+<div id="panel6" class="description-panel">
+  <h2><span class="lang-ja">大井建設工業株式会社</span><span class="lang-en">Oi Construction Industry Co., Ltd.</span></h2>
+  <p><span class="lang-ja">道路建設現場にて</span><span class="lang-en">At a road construction site.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel7" class="description-panel">
+  <h2><span class="lang-ja">大井建設工業株式会社</span><span class="lang-en">Oi Construction Industry Co., Ltd.</span></h2>
+  <p><span class="lang-ja">道路建設現場にて</span><span class="lang-en">At a road construction site.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel8" class="description-panel">
+  <h2><span class="lang-ja">フェリーチェ洋菓子店</span><span class="lang-en">Pâtisserie Felice</span></h2>
+  <p><span class="lang-ja">店舗キッチンにて</span><span class="lang-en">In the shop's kitchen.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel9" class="description-panel">
+  <h2><span class="lang-ja">フェリーチェ洋菓子店</span><span class="lang-en">Pâtisserie Felice</span></h2>
+  <p><span class="lang-ja">店舗にて</span><span class="lang-en">At the shop.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel10" class="description-panel">
+  <h2><span class="lang-ja">一般社団法人林業芸術社</span><span class="lang-en">Forestry Art Association</span></h2>
+  <p><span class="lang-ja">チェーンソーによる玉切り</span><span class="lang-en">Cutting logs into sections with a chainsaw.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel11" class="description-panel">
+  <h2><span class="lang-ja">一般社団法人林業芸術社</span><span class="lang-en">Forestry Art Association</span></h2>
+  <p><span class="lang-ja">チェーンソーによる伐採</span><span class="lang-en">Felling a tree with a chainsaw.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel12" class="description-panel">
+  <h2><span class="lang-ja">一般社団法人林業芸術社</span><span class="lang-en">Forestry Art Association</span></h2>
+  <p><span class="lang-ja">伐採後の作業</span><span class="lang-en">Work after the tree has been felled.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel13" class="description-panel">
+  <h2><span class="lang-ja">御代田消防署</span><span class="lang-en">Miyota Fire Station</span></h2>
+  <p><span class="lang-ja">毎朝の機器点検</span><span class="lang-en">The morning equipment inspection.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel14" class="description-panel">
+  <h2><span class="lang-ja">御代田消防署</span><span class="lang-en">Miyota Fire Station</span></h2>
+  <p><span class="lang-ja">毎朝の機器点検</span><span class="lang-en">The morning equipment inspection.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel15" class="description-panel">
+  <h2><span class="lang-ja">信州御代田 龍神太鼓保存会「鼓響」</span><span class="lang-en">Shinshu Miyota Ryujin Taiko Preservation Society “Kokyo”</span></h2>
+  <p><span class="lang-ja">佐久市 市民交流広場のイベントにて</span><span class="lang-en">At an event at the Saku City Citizens' Plaza.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel16" class="description-panel">
+  <h2><span class="lang-ja">信州御代田 龍神太鼓保存会「鼓響」</span><span class="lang-en">Shinshu Miyota Ryujin Taiko Preservation Society “Kokyo”</span></h2>
+  <p><span class="lang-ja">佐久市 市民交流広場のイベントにて</span><span class="lang-en">At an event at the Saku City Citizens' Plaza.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel17" class="description-panel">
+  <h2><span class="lang-ja">株式会社ヤッホーブルーイング</span><span class="lang-en">Yo-Ho Brewing Company</span></h2>
+  <p><span class="lang-ja">御代田醸造所での歩きながらのミーティング</span><span class="lang-en">A walking meeting at the Miyota Brewery.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel18" class="description-panel">
+  <h2><span class="lang-ja">濱野皮革工藝株式会社</span><span class="lang-en">Hamano Leather Craft Co., Ltd.</span></h2>
+  <p><span class="lang-ja">軽井沢工場にて</span><span class="lang-en">At the Karuizawa factory.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel19" class="description-panel">
+  <h2><span class="lang-ja">濱野皮革工藝株式会社</span><span class="lang-en">Hamano Leather Craft Co., Ltd.</span></h2>
+  <p><span class="lang-ja">軽井沢工場にて</span><span class="lang-en">At the Karuizawa factory.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel20" class="description-panel">
+  <h2><span class="lang-ja">株式会社ヤッホーブルーイング</span><span class="lang-en">Yo-Ho Brewing Company</span></h2>
+  <p><span class="lang-ja">佐久醸造所にて</span><span class="lang-en">At the Saku Brewery.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel21" class="description-panel">
+  <h2><span class="lang-ja">株式会社ヤッホーブルーイング</span><span class="lang-en">Yo-Ho Brewing Company</span></h2>
+  <p><span class="lang-ja">佐久醸造所にて</span><span class="lang-en">At the Saku Brewery.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel22" class="description-panel">
+  <h2><span class="lang-ja">戸塚酒造株式会社</span><span class="lang-en">Totsuka Shuzo Co., Ltd.</span></h2>
+  <p><span class="lang-ja">御代田蒸留所にて</span><span class="lang-en">At the Miyota Distillery.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel23" class="description-panel">
+  <h2><span class="lang-ja">戸塚酒造株式会社</span><span class="lang-en">Totsuka Shuzo Co., Ltd.</span></h2>
+  <p><span class="lang-ja">御代田蒸留所にて</span><span class="lang-en">At the Miyota Distillery.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel24" class="description-panel">
+  <h2><span class="lang-ja">信州御代田 龍の舞保存会</span><span class="lang-en">Shinshu Miyota Ryu-no-Mai Preservation Society</span></h2>
+  <p><span class="lang-ja">龍神の杜公園 龍神の館にて</span><span class="lang-en">At Ryujin-no-Mori Park's Ryujin Hall.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel25" class="description-panel">
+  <h2><span class="lang-ja">信州御代田 龍の舞保存会</span><span class="lang-en">Shinshu Miyota Ryu-no-Mai Preservation Society</span></h2>
+  <p><span class="lang-ja">龍神の杜公園にて</span><span class="lang-en">At Ryujin-no-Mori Park.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel26" class="description-panel">
+  <h2><span class="lang-ja">有限会社トップリバー</span><span class="lang-en">Top River Co., Ltd.</span></h2>
+  <p><span class="lang-ja">トウモロコシ畑にて</span><span class="lang-en">In a cornfield.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel27" class="description-panel">
+  <h2><span class="lang-ja">有限会社トップリバー</span><span class="lang-en">Top River Co., Ltd.</span></h2>
+  <p><span class="lang-ja">トウモロコシ畑にて</span><span class="lang-en">In a cornfield.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel28" class="description-panel">
+  <h2><span class="lang-ja">株式会社カネト</span><span class="lang-en">Kaneto Co., Ltd.</span></h2>
+  <p><span class="lang-ja">軽井沢店にて</span><span class="lang-en">At the Karuizawa store.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel29" class="description-panel">
+  <h2><span class="lang-ja">株式会社カネト</span><span class="lang-en">Kaneto Co., Ltd.</span></h2>
+  <p><span class="lang-ja">軽井沢店にて</span><span class="lang-en">At the Karuizawa store.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel30" class="description-panel">
+  <h2><span class="lang-ja">株式会社カネト</span><span class="lang-en">Kaneto Co., Ltd.</span></h2>
+  <p><span class="lang-ja">軽井沢店にて</span><span class="lang-en">At the Karuizawa store.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel31" class="description-panel">
+  <h2><span class="lang-ja">株式会社カネト</span><span class="lang-en">Kaneto Co., Ltd.</span></h2>
+  <p><span class="lang-ja">軽井沢店にて（サッシの組み立て）</span><span class="lang-en">At the Karuizawa store (assembling window sashes).</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel32" class="description-panel">
+  <h2><span class="lang-ja">御代田町役場</span><span class="lang-en">Miyota Town Office</span></h2>
+  <p><span class="lang-ja">御代田町役場の窓口にて</span><span class="lang-en">At the Miyota Town Office service counter.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel33" class="description-panel">
+  <h2><span class="lang-ja">御代田町役場</span><span class="lang-en">Miyota Town Office</span></h2>
+  <p><span class="lang-ja">御代田町役場敷地内の量水器</span><span class="lang-en">A water meter on the Miyota Town Office grounds.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel34" class="description-panel">
+  <h2><span class="lang-ja">一般社団法人林業芸術社</span><span class="lang-en">Forestry Art Association</span></h2>
+  <p><span class="lang-ja">伐採後の作業</span><span class="lang-en">Work after the tree has been felled.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel35" class="description-panel">
+  <h2><span class="lang-ja">御代田消防署</span><span class="lang-en">Miyota Fire Station</span></h2>
+  <p><span class="lang-ja">毎朝の機器点検</span><span class="lang-en">The morning equipment inspection.</span></p>
+  <p class="credit">撮影: 番匠健太 Kenta Banjo</p>
+</div>
+<div id="panel36" class="description-panel">
+  <h2><span class="lang-ja">濱野皮革工藝株式会社</span><span class="lang-en">Hamano Leather Craft Co., Ltd.</span></h2>
+  <p><span class="lang-ja">鞄を構成する各部品を組み立てる工程</span><span class="lang-en">Assembling the various parts that make up a bag.</span></p>
+  <p class="credit">撮影: 鈴木優介 Yusuke Suzuki</p>
+</div>
+<div id="panel37" class="description-panel">
+  <h2><span class="lang-ja">THE HIRAMATSU 軽井沢 御代田</span><span class="lang-en">THE HIRAMATSU Karuizawa Miyota</span></h2>
+  <p><span class="lang-ja">スーシェフがステーキを焼いてディナーの準備中。</span><span class="lang-en">The sous chef grilling steak, preparing for dinner service.</span></p>
+  <p class="credit">撮影: 清水宣晶 Noriaki Shimizu</p>
+</div>
+<div id="panel38" class="description-panel">
+  <h2><span class="lang-ja">THE HIRAMATSU 軽井沢 御代田</span><span class="lang-en">THE HIRAMATSU Karuizawa Miyota</span></h2>
+  <p><span class="lang-ja">レストランでグラスに水を注ぐ。</span><span class="lang-en">Pouring water into a glass at the restaurant.</span></p>
+  <p class="credit">撮影: 清水宣晶 Noriaki Shimizu</p>
+</div>
+<div id="panel39" class="description-panel">
+  <h2><span class="lang-ja">THE HIRAMATSU 軽井沢 御代田</span><span class="lang-en">THE HIRAMATSU Karuizawa Miyota</span></h2>
+  <p><span class="lang-ja">ソムリエがセラーから料理にふさわしいワインを選定中。</span><span class="lang-en">The sommelier selecting a wine to match the dish from the cellar.</span></p>
+  <p class="credit">撮影: 清水宣晶 Noriaki Shimizu</p>
+</div>
+<div id="panel40" class="description-panel">
+  <h2><span class="lang-ja">THE HIRAMATSU 軽井沢 御代田</span><span class="lang-en">THE HIRAMATSU Karuizawa Miyota</span></h2>
+  <p><span class="lang-ja">入口に到着したお客様をお出迎え。</span><span class="lang-en">Welcoming guests arriving at the entrance.</span></p>
+  <p class="credit">撮影: 清水宣晶 Noriaki Shimizu</p>
+</div>
+<div id="panel41" class="description-panel">
+  <h2><span class="lang-ja">ある昼下がりのゴカラボの様子</span><span class="lang-en">A scene from one afternoon at GokaLab</span></h2>
+  <p class="credit">撮影: 吉田達矢 YOSHIDA Tatsuya</p>
+</div>
+<div id="panel42" class="description-panel">
+  <h2><span class="lang-ja">THE HIRAMATSU 軽井沢 御代田</span><span class="lang-en">THE HIRAMATSU Karuizawa Miyota</span></h2>
+  <p><span class="lang-ja">客室のインスペクション。ガラスの底まで丁寧に。</span><span class="lang-en">Room inspection — checking carefully, right down to the glassware.</span></p>
+  <p class="credit">撮影: 金久美 Kumi Kim</p>
+</div>
+<div id="panel43" class="description-panel">
+  <h2><span class="lang-ja">ベーカリーココラデ 御代田店</span><span class="lang-en">Bakery Cocolade Miyota</span></h2>
+  <p><span class="lang-ja">焼き上がったばかりのパンを売り場に並べる。</span><span class="lang-en">Arranging freshly baked bread on the shop shelves.</span></p>
+  <p class="credit">撮影: 清水宣晶 Noriaki Shimizu</p>
+</div>
+<div id="panel44" class="description-panel">
+  <h2><span class="lang-ja">ベーカリーココラデ 御代田店</span><span class="lang-en">Bakery Cocolade Miyota</span></h2>
+  <p><span class="lang-ja">パンの販売担当の3人がレジに集合。</span><span class="lang-en">The three bread sales staff gathered at the register.</span></p>
+  <p class="credit">撮影: 清水宣晶 Noriaki Shimizu</p>
+</div>
+<div id="panel45" class="description-panel">
+  <h2><span class="lang-ja">株式会社ヤッホーブルーイング</span><span class="lang-en">Yo-Ho Brewing Company</span></h2>
+  <p><span class="lang-ja">ラインに流れるビールの缶の状態をチェック。</span><span class="lang-en">Checking the condition of beer cans moving along the line.</span></p>
+  <p class="credit">撮影: 清水宣晶 Noriaki Shimizu</p>
+</div>
+<div id="panel46" class="description-panel">
+  <h2><span class="lang-ja">株式会社ヤッホーブルーイング</span><span class="lang-en">Yo-Ho Brewing Company</span></h2>
+  <p><span class="lang-ja">タンクの中のビールの状態を確認中。</span><span class="lang-en">Checking the condition of the beer inside the tank.</span></p>
+  <p class="credit">撮影: 清水宣晶 Noriaki Shimizu</p>
+</div>
+<div id="panel47" class="description-panel">
+  <h2><span class="lang-ja">K's Roastery</span><span class="lang-en">K's Roastery</span></h2>
+  <p><span class="lang-ja">K's Roastery 梶原さんの珈琲焙煎中のワンシーン</span><span class="lang-en">A scene of Mr. Kajiwara roasting coffee at K's Roastery.</span></p>
+  <p class="credit">撮影: 佐藤克則 Katsunori Sato</p>
+</div>
+
+<!--
+  imageTargetSrc は compile 済みの .mind ファイルを指します。
+  targets.mind は下記の手順で作成し、このHTMLと同じ場所に置いてください。
+  末尾の ?v=... はキャッシュ回避用。targets.mind を更新したら versionTag と合わせて数字を上げてください。
+-->
+<a-scene
+  mindar-image="imageTargetSrc: ./targets.mind?v=1.6; autoStart: false; uiScanning: no;"
+  color-space="sRGB"
+  renderer="colorManagement: true, physicallyCorrectLights: true"
+  vr-mode-ui="enabled: false"
+  device-orientation-permission-ui="enabled: false"
+>
+  <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false"></a-camera>
+
+  <!-- targetIndex は compile 時の画像の並び順(0始まり)に対応します -->
+  <a-entity mindar-image-target="targetIndex: 0" id="target0"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 1" id="target1"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 2" id="target2"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 3" id="target3"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 4" id="target4"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 5" id="target5"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 6" id="target6"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 7" id="target7"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 8" id="target8"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 9" id="target9"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 10" id="target10"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 11" id="target11"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 12" id="target12"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 13" id="target13"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 14" id="target14"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 15" id="target15"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 16" id="target16"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 17" id="target17"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 18" id="target18"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 19" id="target19"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 20" id="target20"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 21" id="target21"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 22" id="target22"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 23" id="target23"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 24" id="target24"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 25" id="target25"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 26" id="target26"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 27" id="target27"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 28" id="target28"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 29" id="target29"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 30" id="target30"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 31" id="target31"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 32" id="target32"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 33" id="target33"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 34" id="target34"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 35" id="target35"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 36" id="target36"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 37" id="target37"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 38" id="target38"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 39" id="target39"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 40" id="target40"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 41" id="target41"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 42" id="target42"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 43" id="target43"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 44" id="target44"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 45" id="target45"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 46" id="target46"></a-entity>
+  <a-entity mindar-image-target="targetIndex: 47" id="target47"></a-entity>
+</a-scene>
+
+<!--
+  遠くの写真を絞り込んで認識させるためのズーム機能。
+  MindARが内部でnavigator.mediaDevices.getUserMedia()を呼んでカメラ映像を取得する前に、
+  この関数を「元のカメラ映像をcanvasに描き、中心部分だけを切り出して拡大したもの」を
+  返すものに差し替えておく。これによりMindAR自身が解析する映像そのものが拡大されるため、
+  画面表示だけを拡大する方法と違って、実際の認識の絞り込みに効果がある。
+-->
+<script>
+  window.CameraZoom = (() => {
+    const MIN_ZOOM = 1;
+    const MAX_ZOOM = 3;
+    let zoom = MIN_ZOOM;
+
+    const realGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+
+    navigator.mediaDevices.getUserMedia = async (constraints) => {
+      const stream = await realGetUserMedia(constraints);
+      if (!constraints || !constraints.video) return stream;
+
+      const sourceVideo = document.createElement('video');
+      sourceVideo.muted = true;
+      sourceVideo.playsInline = true;
+      sourceVideo.srcObject = stream;
+      await sourceVideo.play();
+      if (!sourceVideo.videoWidth) {
+        await new Promise(resolve => sourceVideo.addEventListener('loadedmetadata', resolve, { once: true }));
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = sourceVideo.videoWidth;
+      canvas.height = sourceVideo.videoHeight;
+      const ctx = canvas.getContext('2d');
+
+      (function draw() {
+        const sw = canvas.width / zoom;
+        const sh = canvas.height / zoom;
+        ctx.drawImage(sourceVideo, (canvas.width - sw) / 2, (canvas.height - sh) / 2, sw, sh, 0, 0, canvas.width, canvas.height);
+        requestAnimationFrame(draw);
+      })();
+
+      return canvas.captureStream(30);
+    };
+
+    return {
+      get: () => zoom,
+      set: (value) => { zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value)); return zoom; },
+    };
+  })();
+</script>
+
+<!-- 2本指のピンチイン/ピンチアウトでCameraZoomのズーム値を変える -->
+<script>
+  (() => {
+    const zoomLevelEl = document.querySelector('#zoomLevel');
+    let pinchStartDist = null;
+    let pinchStartZoom = 1;
+    let hideTimer = null;
+
+    function touchDistance(t1, t2) {
+      return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+    }
+
+    function showZoomLevel(zoom) {
+      zoomLevelEl.textContent = zoom.toFixed(1) + 'x';
+      zoomLevelEl.classList.add('visible');
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => zoomLevelEl.classList.remove('visible'), 1200);
+    }
+
+    window.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        pinchStartDist = touchDistance(e.touches[0], e.touches[1]);
+        pinchStartZoom = window.CameraZoom.get();
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && pinchStartDist) {
+        e.preventDefault();
+        const scale = touchDistance(e.touches[0], e.touches[1]) / pinchStartDist;
+        showZoomLevel(window.CameraZoom.set(pinchStartZoom * scale));
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) pinchStartDist = null;
+    });
+  })();
+</script>
+
+<!--
+  targets.mindは50MB超あり、カメラ起動ボタンを押してからMindARが読み込むと数秒待たされる。
+  ページを開いた直後(スタート画面表示中)からダウンロードを始めておき、ブラウザキャッシュに
+  乗せておくことで、MindARが実際に読み込む際は再ダウンロードなしで済むようにする。
+-->
+<script>
+  (() => {
+    const src = document.querySelector('a-scene')
+      .getAttribute('mindar-image').match(/imageTargetSrc:\s*([^;]+)/)[1].trim();
+    fetch(src).catch(() => {});
+  })();
+</script>
+
+<script>
+  window.addEventListener('load', () => {
+    const sceneEl = document.querySelector('a-scene');
+    const startBtn = document.querySelector('#startOverlay button');
+    const WORK_COUNT = 48; // 写真(パネル・ターゲット)の枚数。増減時はHTML側のpanel/targetも合わせて増減してください
+
+    // 表示言語の切り替え(日本語/英語)。localStorageに保存して次回訪問時も引き継ぎ、
+    // 初回はブラウザの言語設定(navigator.language)から日本語かどうかを推測する。
+    const TITLE_TEXT = { ja: '写真展 AR ガイド', en: 'Photo Exhibition AR Guide' };
+    let currentLang = localStorage.getItem('photofes-lang') || (navigator.language.startsWith('ja') ? 'ja' : 'en');
+
+    function applyLang(lang) {
+      currentLang = lang;
+      document.body.classList.toggle('lang-en', lang === 'en');
+      document.documentElement.lang = lang;
+      document.title = TITLE_TEXT[lang];
+      document.querySelectorAll('#langToggle button').forEach(b => {
+        b.classList.toggle('active', b.dataset.lang === lang);
+      });
+      localStorage.setItem('photofes-lang', lang);
+    }
+
+    document.querySelectorAll('#langToggle button').forEach(btn => {
+      btn.addEventListener('click', () => applyLang(btn.dataset.lang));
+    });
+
+    applyLang(currentLang);
+
+    startBtn.addEventListener('click', () => {
+      const arSystem = sceneEl.systems['mindar-image-system'];
+      arSystem.start(); // カメラ起動 & 認識開始
+    });
+
+    // MindARはカメラ映像の準備が整うと'arReady'を発行し、その時点で初めて
+    // windowのresizeリスナーを登録する(それより前にresizeイベントを送っても効かない)。
+    // スマホはこの準備中にアドレスバーが収縮して画面サイズが変わることがあり、
+    // MindARが古い(収縮前の)サイズでカメラ映像を配置したままになることがあるため、
+    // arReady後にresizeイベントを発火して正しいサイズで再計算させる。
+    sceneEl.addEventListener('arReady', () => {
+      [0, 300, 1000].forEach(delay => {
+        setTimeout(() => window.dispatchEvent(new Event('resize')), delay);
+      });
+    });
+
+    const panels = Array.from({ length: WORK_COUNT }, (_, i) => document.querySelector(`#panel${i}`));
+    const targets = Array.from({ length: WORK_COUNT }, (_, i) => document.querySelector(`#target${i}`));
+    const multiNotice = document.querySelector('#multiNotice');
+
+    // 現在カメラに映っている(targetFound中の)写真のindex集合。
+    // 説明パネルは写真から外れても消さず、次に1枚だけ認識できた時に切り替える。
+    const foundIndices = new Set();
+
+    // どの写真が多く見られたかをCloudflare Workers + D1に記録する。
+    // sendBeaconは送信結果を待たず、失敗してもAR体験自体には影響しない。
+    const COUNTER_URL = 'https://photofes2026-counter.taijiro.workers.dev/track';
+    function trackView(idx) {
+      try {
+        navigator.sendBeacon(COUNTER_URL, JSON.stringify({ photo: idx, lang: currentLang }));
+      } catch {}
+    }
+
+    // 表示中のパネルを一旦下げ、少し間を置いてから該当パネルを下から迫り出させる。
+    // 同じ写真を再認識した場合も一度下げてから出すことで「今認識した」ことが伝わる。
+    function revealPanel(idx) {
+      panels.forEach(p => p.classList.remove('visible'));
+      setTimeout(() => {
+        panels[idx].classList.add('visible');
+        trackView(idx);
+      }, 300);
+    }
+
+    function updateMultiNotice() {
+      multiNotice.style.display = foundIndices.size >= 2 ? 'block' : 'none';
+    }
+
+    targets.forEach((targetEl, i) => {
+      targetEl.addEventListener('targetFound', () => {
+        foundIndices.add(i);
+        // 同時に1枚だけ認識できている時だけ、その説明に切り替える。
+        // 2枚以上同時に認識している間はどの説明か分からなくなるので切り替えない。
+        if (foundIndices.size === 1) {
+          revealPanel(i);
+        }
+        updateMultiNotice();
+      });
+      targetEl.addEventListener('targetLost', () => {
+        foundIndices.delete(i);
+        // 1枚も映らなくなっても説明パネルはそのまま維持し、次に認識するまで消さない。
+        // 2枚同時認識から1枚に絞られた場合は、残った1枚の説明に切り替える。
+        if (foundIndices.size === 1) {
+          const remaining = foundIndices.values().next().value;
+          revealPanel(remaining);
+        }
+        updateMultiNotice();
+      });
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -71,10 +71,11 @@ async function handleTrack(request, env) {
 
   const ipAddress = request.headers.get('CF-Connecting-IP');
   const userAgent = request.headers.get('User-Agent');
+  const uiLang = body.lang === 'en' ? 'en' : body.lang === 'ja' ? 'ja' : null;
 
   await env.DB.prepare(
-    'INSERT INTO views (photo_index, ip_address, user_agent) VALUES (?, ?, ?)'
-  ).bind(photoIndex, ipAddress, userAgent).run();
+    'INSERT INTO views (photo_index, ip_address, user_agent, ui_lang) VALUES (?, ?, ?, ?)'
+  ).bind(photoIndex, ipAddress, userAgent, uiLang).run();
 
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
@@ -153,7 +154,7 @@ async function handleThumb(url, env) {
 
 async function handleLog(env) {
   const { results } = await env.DB.prepare(
-    'SELECT id, photo_index, viewed_at, ip_address, user_agent FROM views ORDER BY id DESC LIMIT 500'
+    'SELECT id, photo_index, viewed_at, ip_address, user_agent, ui_lang FROM views ORDER BY id DESC LIMIT 500'
   ).all();
 
   const rows = results.map(row => `
@@ -161,6 +162,7 @@ async function handleLog(env) {
       <td>${row.id}</td>
       <td>${row.viewed_at}</td>
       <td>panel${row.photo_index}</td>
+      <td>${row.ui_lang ?? ''}</td>
       <td>${row.ip_address ?? ''}</td>
       <td>${row.user_agent ?? ''}</td>
     </tr>
@@ -177,15 +179,15 @@ async function handleLog(env) {
   p.note { color:#8b8681; margin-top:0; }
   table { border-collapse:collapse; width:100%; font-size:12px; }
   th, td { padding:6px 10px; border-bottom:1px solid #2a2a2a; text-align:left; white-space:nowrap; }
-  td:nth-child(5) { white-space:normal; word-break:break-all; }
+  td:nth-child(6) { white-space:normal; word-break:break-all; }
 </style>
 </head>
 <body>
   <h1>写真展 AR ガイド - 認識ログ(直近500件)</h1>
   <p class="note">除外したいIPアドレスがあれば、CloudflareダッシュボードまたはwranglerからそのIPの行をDELETEしてください。</p>
   <table>
-    <tr><th>id</th><th>日時(UTC)</th><th>写真</th><th>IPアドレス</th><th>User-Agent</th></tr>
-    ${rows || '<tr><td colspan="5">まだデータがありません</td></tr>'}
+    <tr><th>id</th><th>日時(UTC)</th><th>写真</th><th>言語</th><th>IPアドレス</th><th>User-Agent</th></tr>
+    ${rows || '<tr><td colspan="6">まだデータがありません</td></tr>'}
   </table>
 </body>
 </html>`;

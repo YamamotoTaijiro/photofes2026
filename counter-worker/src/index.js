@@ -142,7 +142,11 @@ async function handleThumb(url, env) {
     return new Response('Not found', { status: 404, headers: CORS_HEADERS });
   }
 
-  return new Response(row.image, {
+  // D1のBLOB列はドキュメント上ArrayBufferのはずだが、実際にはただの数値配列で返る既知の不具合があるため、
+  // Uint8Arrayに変換してから返す(そのままだとResponseのbodyとして正しく扱われない)。
+  const imageBytes = new Uint8Array(row.image);
+
+  return new Response(imageBytes, {
     headers: { 'Content-Type': row.content_type, ...CORS_HEADERS },
   });
 }

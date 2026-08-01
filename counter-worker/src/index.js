@@ -4,6 +4,8 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+  // /statsや/logは常に最新の集計を見せる必要があるため、エッジ・ブラウザのどちらにもキャッシュさせない
+  'Cache-Control': 'no-store',
 };
 
 export default {
@@ -20,6 +22,10 @@ export default {
 
     if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '/stats')) {
       return handleStats(env);
+    }
+
+    if (request.method === 'GET' && url.pathname === '/log') {
+      return handleLog(env);
     }
 
     return new Response('Not found', { status: 404, headers: CORS_HEADERS });
@@ -41,7 +47,12 @@ async function handleTrack(request, env) {
     return new Response('Invalid photo index', { status: 400, headers: CORS_HEADERS });
   }
 
-  await env.DB.prepare('INSERT INTO views (photo_index) VALUES (?)').bind(photoIndex).run();
+  const ipAddress = request.headers.get('CF-Connecting-IP');
+  const userAgent = request.headers.get('User-Agent');
+
+  await env.DB.prepare(
+    'INSERT INTO views (photo_index, ip_address, user_agent) VALUES (?, ?, ?)'
+  ).bind(photoIndex, ipAddress, userAgent).run();
 
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
@@ -83,6 +94,50 @@ async function handleStats(env) {
   <h1>写真展 AR ガイド - 認識回数</h1>
   <p class="total">総認識回数: ${total}</p>
   <table>${rows || '<tr><td colspan="3">まだデータがありません</td></tr>'}</table>
+</body>
+</html>`;
+
+  return new Response(html, {
+    headers: { 'Content-Type': 'text/html; charset=UTF-8', ...CORS_HEADERS },
+  });
+}
+
+async function handleLog(env) {
+  const { results } = await env.DB.prepare(
+    'SELECT id, photo_index, viewed_at, ip_address, user_agent FROM views ORDER BY id DESC LIMIT 500'
+  ).all();
+
+  const rows = results.map(row => `
+    <tr>
+      <td>${row.id}</td>
+      <td>${row.viewed_at}</td>
+      <td>panel${row.photo_index}</td>
+      <td>${row.ip_address ?? ''}</td>
+      <td>${row.user_agent ?? ''}</td>
+    </tr>
+  `).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>写真展AR 認識ログ</title>
+<style>
+  body { font-family: sans-serif; background:#0c0c0d; color:#ece7df; padding:24px; }
+  h1 { font-size:18px; font-weight:500; }
+  p.note { color:#8b8681; margin-top:0; }
+  table { border-collapse:collapse; width:100%; font-size:12px; }
+  th, td { padding:6px 10px; border-bottom:1px solid #2a2a2a; text-align:left; white-space:nowrap; }
+  td:nth-child(5) { white-space:normal; word-break:break-all; }
+</style>
+</head>
+<body>
+  <h1>写真展 AR ガイド - 認識ログ(直近500件)</h1>
+  <p class="note">除外したいIPアドレスがあれば、CloudflareダッシュボードまたはwranglerからそのIPの行をDELETEしてください。</p>
+  <table>
+    <tr><th>id</th><th>日時(UTC)</th><th>写真</th><th>IPアドレス</th><th>User-Agent</th></tr>
+    ${rows || '<tr><td colspan="5">まだデータがありません</td></tr>'}
+  </table>
 </body>
 </html>`;
 

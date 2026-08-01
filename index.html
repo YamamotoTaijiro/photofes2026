@@ -74,7 +74,7 @@
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v2.1</div>
+  <div id="versionTag">v2.2</div>
 </div>
 
 <div id="multiNotice">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</div>
@@ -499,11 +499,15 @@
     startBtn.addEventListener('click', () => {
       const arSystem = sceneEl.systems['mindar-image-system'];
       arSystem.start(); // カメラ起動 & 認識開始
+    });
 
-      // スマホはボタンタップ直後にアドレスバーが収縮して画面サイズが変わることがあり、
-      // MindARが起動直後の(収縮前の)小さいサイズでカメラ映像を配置してしまうことがある。
-      // 少し待ってからresizeイベントを発火し、正しいサイズで再計算させる。
-      [300, 1000].forEach(delay => {
+    // MindARはカメラ映像の準備が整うと'arReady'を発行し、その時点で初めて
+    // windowのresizeリスナーを登録する(それより前にresizeイベントを送っても効かない)。
+    // スマホはこの準備中にアドレスバーが収縮して画面サイズが変わることがあり、
+    // MindARが古い(収縮前の)サイズでカメラ映像を配置したままになることがあるため、
+    // arReady後にresizeイベントを発火して正しいサイズで再計算させる。
+    sceneEl.addEventListener('arReady', () => {
+      [0, 300, 1000].forEach(delay => {
         setTimeout(() => window.dispatchEvent(new Event('resize')), delay);
       });
     });

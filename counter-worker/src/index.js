@@ -8,6 +8,23 @@ const CORS_HEADERS = {
   'Cache-Control': 'no-store',
 };
 
+const AUTH_REALM = 'photofes2026 stats';
+
+function isAuthorized(request, env) {
+  const header = request.headers.get('Authorization') || '';
+  if (!header.startsWith('Basic ')) return false;
+  const decoded = atob(header.slice(6));
+  const password = decoded.slice(decoded.indexOf(':') + 1);
+  return password === env.STATS_PASSWORD;
+}
+
+function unauthorizedResponse() {
+  return new Response('Unauthorized', {
+    status: 401,
+    headers: { 'WWW-Authenticate': `Basic realm="${AUTH_REALM}"`, ...CORS_HEADERS },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -20,12 +37,17 @@ export default {
       return handleTrack(request, env);
     }
 
-    if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '/stats')) {
-      return handleStats(env);
-    }
+    // /stats, /log, /thumb/*は写真ごとの認識ログ・サムネイルを含むため、誰でも見られないようBasic認証をかける
+    const isProtected =
+      request.method === 'GET' &&
+      (url.pathname === '/' || url.pathname === '/stats' || url.pathname === '/log' || url.pathname.startsWith('/thumb/'));
 
-    if (request.method === 'GET' && url.pathname === '/log') {
-      return handleLog(env);
+    if (isProtected) {
+      if (!isAuthorized(request, env)) return unauthorizedResponse();
+
+      if (url.pathname === '/' || url.pathname === '/stats') return handleStats(env);
+      if (url.pathname === '/log') return handleLog(env);
+      if (url.pathname.startsWith('/thumb/')) return handleThumb(url, env);
     }
 
     return new Response('Not found', { status: 404, headers: CORS_HEADERS });
@@ -67,6 +89,7 @@ async function handleStats(env) {
 
   const rows = results.map(row => `
     <tr>
+      <td><img src="/thumb/panel${row.photo_index}.jpg" alt="panel${row.photo_index}" loading="lazy"></td>
       <td>panel${row.photo_index}</td>
       <td>${row.count}</td>
       <td><div class="bar" style="width:${maxCount ? (row.count / maxCount) * 100 : 0}%"></div></td>
@@ -84,21 +107,43 @@ async function handleStats(env) {
   p.total { color:#8b8681; margin-top:0; }
   table { border-collapse:collapse; width:100%; max-width:640px; }
   td { padding:8px 10px; border-bottom:1px solid #2a2a2a; font-size:14px; vertical-align:middle; }
-  td:nth-child(1) { width:100px; }
-  td:nth-child(2) { width:60px; text-align:right; }
-  td:nth-child(3) { width:auto; }
+  td:nth-child(1) { width:64px; }
+  td:nth-child(1) img { width:56px; height:56px; object-fit:cover; border-radius:4px; display:block; }
+  td:nth-child(2) { width:100px; }
+  td:nth-child(3) { width:60px; text-align:right; }
+  td:nth-child(4) { width:auto; }
   .bar { height:10px; background:#c9a24a; border-radius:5px; }
 </style>
 </head>
 <body>
   <h1>写真展 AR ガイド - 認識回数</h1>
   <p class="total">総認識回数: ${total}</p>
-  <table>${rows || '<tr><td colspan="3">まだデータがありません</td></tr>'}</table>
+  <table>${rows || '<tr><td colspan="4">まだデータがありません</td></tr>'}</table>
 </body>
 </html>`;
 
   return new Response(html, {
     headers: { 'Content-Type': 'text/html; charset=UTF-8', ...CORS_HEADERS },
+  });
+}
+
+async function handleThumb(url, env) {
+  const match = url.pathname.match(/^\/thumb\/panel(\d+)\.jpg$/);
+  const photoIndex = match ? Number(match[1]) : NaN;
+  if (!Number.isInteger(photoIndex) || photoIndex < 0 || photoIndex >= WORK_COUNT) {
+    return new Response('Not found', { status: 404, headers: CORS_HEADERS });
+  }
+
+  const row = await env.DB.prepare(
+    'SELECT image, content_type FROM thumbnails WHERE photo_index = ?'
+  ).bind(photoIndex).first();
+
+  if (!row) {
+    return new Response('Not found', { status: 404, headers: CORS_HEADERS });
+  }
+
+  return new Response(row.image, {
+    headers: { 'Content-Type': row.content_type, ...CORS_HEADERS },
   });
 }
 

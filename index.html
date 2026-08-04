@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>写真展 AR ガイド</title>
+<title>かざして見る展示ガイド</title>
 
 <!-- MindAR + A-Frame (CDN) -->
 <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
@@ -70,11 +70,11 @@
 <!-- カメラ起動前のスタート画面(iOSはユーザー操作がないとカメラ許可が出ないため) -->
 <div id="startOverlay">
   <div>
-    <h1 style="font-weight:500;">写真展 AR ガイド</h1>
+    <h1 style="font-weight:500;">かざして見る展示ガイド</h1>
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v2.4</div>
+  <div id="versionTag">v2.5</div>
 </div>
 
 <div id="multiNotice">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</div>

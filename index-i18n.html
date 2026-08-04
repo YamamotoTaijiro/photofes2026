@@ -41,7 +41,10 @@
     border:1px solid #c9a24a; color:#c9a24a; background:none; font-size:14px;
   }
   #posterImg{
-    width:30%; max-width:100px; border-radius:6px; margin-bottom:10px;
+    /* 画面の高さ(16vh)を基準に、100px(古い/小さい画面)〜220px(新しい/大きい画面)の間で
+       ポスターの高さを可変にする。widthはautoにして画像本来の縦横比を保つ */
+    height:clamp(100px, 16vh, 220px); width:auto; max-width:55%;
+    border-radius:6px; margin-bottom:10px;
     box-shadow:0 4px 20px rgba(0,0,0,0.5);
   }
   #aboutDetails{
@@ -166,7 +169,7 @@
   <button id="startCameraBtn" onclick="document.getElementById('startOverlay').style.display='none'">
     <span class="lang-ja">カメラを起動する</span><span class="lang-en">Start Camera</span>
   </button>
-  <div id="versionTag">i18n-v1.14</div>
+  <div id="versionTag">i18n-v1.15</div>
 </div>
 
 <div id="multiNotice">

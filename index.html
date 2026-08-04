@@ -50,7 +50,7 @@
   #aboutDetails summary{
     cursor:pointer; color:#8b8681; font-size:13px; list-style:none;
     display:flex; align-items:center; justify-content:center; gap:6px;
-    padding:8px 16px; border:1px solid #3a362f; border-radius:16px;
+    padding:8px 16px; border:1px solid #3a362f; border-radius:24px;
   }
   #aboutDetails summary::-webkit-details-marker{ display:none; }
   #aboutDetails summary .chevron{
@@ -65,7 +65,8 @@
   #aboutDetails .credits{ margin-top:16px; font-size:11px; color:#8b8681; line-height:1.9; }
   #versionTag{
     align-self:flex-end;
-    margin-top:10px;
+    margin-top:auto;
+    padding-top:10px;
     font-size:10px; color:#3a362f; letter-spacing:0.05em;
   }
 
@@ -130,7 +131,7 @@
     </div>
   </details>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v2.10</div>
+  <div id="versionTag">v2.11</div>
 </div>
 
 <div id="multiNotice">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</div>
@@ -566,12 +567,27 @@
       arSystem.start(); // カメラ起動 & 認識開始
     });
 
-    // <details>は開閉が瞬時に切り替わってしまうため、開く時だけ高さをアニメーションさせる。
-    // (閉じる時はネイティブの挙動のまま瞬時に閉じる)
+    // <details>は開閉が瞬時に切り替わってしまうため、summaryのクリックでネイティブの
+    // 開閉を止め(preventDefault)、代わりに高さをアニメーションさせてから開閉を反映する。
     const aboutDetails = document.querySelector('#aboutDetails');
+    const aboutSummary = aboutDetails.querySelector('summary');
     const aboutBody = aboutDetails.querySelector('.about-body');
-    aboutDetails.addEventListener('toggle', () => {
+    aboutSummary.addEventListener('click', (e) => {
+      e.preventDefault();
       if (aboutDetails.open) {
+        // 閉じる: 現在の高さ→0にアニメーションしてから閉じる
+        aboutBody.style.height = aboutBody.scrollHeight + 'px';
+        requestAnimationFrame(() => {
+          aboutBody.style.height = '0px';
+        });
+        aboutBody.addEventListener('transitionend', function handler() {
+          aboutDetails.open = false;
+          aboutBody.style.height = '';
+          aboutBody.removeEventListener('transitionend', handler);
+        }, { once: true });
+      } else {
+        // 開く: 先に開いた状態にして中身の高さを測り、0→その高さへアニメーション
+        aboutDetails.open = true;
         const targetHeight = aboutBody.scrollHeight;
         aboutBody.style.height = '0px';
         requestAnimationFrame(() => {
@@ -581,8 +597,6 @@
           aboutBody.style.height = 'auto';
           aboutBody.removeEventListener('transitionend', handler);
         }, { once: true });
-      } else {
-        aboutBody.style.height = '';
       }
     });
 

@@ -34,14 +34,14 @@
   #startOverlay{
     position:fixed; inset:0; background:#0c0c0d; color:#ece7df;
     display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
-    z-index:1000; text-align:center; padding:32px 24px; overflow-y:auto;
+    z-index:1000; text-align:center; padding:24px; overflow-y:auto;
   }
   #startOverlay button{
     margin-top:20px; padding:12px 28px; border-radius:24px;
     border:1px solid #c9a24a; color:#c9a24a; background:none; font-size:14px;
   }
   #posterImg{
-    width:55%; max-width:200px; border-radius:6px; margin-bottom:20px;
+    width:30%; max-width:100px; border-radius:6px; margin-bottom:10px;
     box-shadow:0 4px 20px rgba(0,0,0,0.5);
   }
   #aboutDetails{
@@ -157,7 +157,8 @@
           <strong>Photographers</strong><br>
           <span class="lang-ja">Gokalabのコンセプト「はたらくが広がる」を軸に、6名のフォトグラファーがそれぞれの視点から、御代田の「はたらく」を立体的に切り取りました。</span>
           <span class="lang-en">With Gokalab's core concept, "Expanding the Landscapes of Work" (Hataraku ga Hirogaru), as their starting point, six photographers have captured the multi-dimensional facets of "work" in Miyota from their own unique perspectives.</span><br>
-          番匠健太｜清水宣晶｜鈴木優介｜吉田達矢｜佐藤克則｜金久美
+          <span class="lang-ja">番匠健太｜清水宣晶｜鈴木優介｜吉田達矢｜佐藤克則｜金久美</span>
+          <span class="lang-en">Kenta Banjo｜Noriaki Shimizu｜Yusuke Suzuki｜YOSHIDA Tatsuya｜Katsunori Sato｜Kumi Kim</span>
         </p>
       </div>
     </div>
@@ -165,7 +166,7 @@
   <button id="startCameraBtn" onclick="document.getElementById('startOverlay').style.display='none'">
     <span class="lang-ja">カメラを起動する</span><span class="lang-en">Start Camera</span>
   </button>
-  <div id="versionTag">i18n-v1.13</div>
+  <div id="versionTag">i18n-v1.14</div>
 </div>
 
 <div id="multiNotice">

@@ -33,7 +33,7 @@
 
   #startOverlay{
     position:fixed; inset:0; background:#0c0c0d; color:#ece7df;
-    display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
     z-index:1000; text-align:center; padding:24px; overflow-y:auto;
   }
   #startOverlay button{
@@ -49,7 +49,7 @@
     box-shadow:0 4px 20px rgba(0,0,0,0.5);
   }
   #startOverlay .intro h1{ font-size:clamp(18px, 6.5vw, 30px); margin:0; }
-  #startOverlay .intro p{ font-size:clamp(12px, 4vw, 16px); margin:8px 0 0; }
+  #startOverlay .intro p{ font-size:clamp(11px, 3.6vw, 15px); margin:8px 0 0; }
   #aboutDetails{
     margin-top:18px; max-width:520px; text-align:left; color:#c7c2b8;
   }
@@ -71,8 +71,7 @@
   #aboutDetails .credits{ margin-top:16px; font-size:11px; color:#8b8681; line-height:1.9; }
   #versionTag{
     align-self:flex-end;
-    margin-top:auto;
-    padding-top:10px;
+    margin-top:16px;
     font-size:10px; color:#3a362f; letter-spacing:0.05em;
   }
 
@@ -137,7 +136,7 @@
     </div>
   </details>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v2.14</div>
+  <div id="versionTag">v2.15</div>
 </div>
 
 <div id="multiNotice">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</div>

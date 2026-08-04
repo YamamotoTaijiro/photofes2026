@@ -160,8 +160,9 @@ async function handleThumb(url, env) {
 }
 
 async function handleLog(env) {
+  // viewed_atはUTCで保存されているため、表示用に+9時間してJSTに変換する
   const { results } = await env.DB.prepare(
-    'SELECT id, photo_index, viewed_at, ip_address, user_agent, ui_lang, client_id FROM views ORDER BY id DESC LIMIT 500'
+    'SELECT id, photo_index, datetime(viewed_at, "+9 hours") AS viewed_at, ip_address, user_agent, ui_lang, client_id FROM views ORDER BY id DESC LIMIT 500'
   ).all();
 
   const rows = results.map(row => `
@@ -194,7 +195,7 @@ async function handleLog(env) {
   <h1>写真展 AR ガイド - 認識ログ(直近500件)</h1>
   <p class="note">除外したいIPアドレスがあれば、CloudflareダッシュボードまたはwranglerからそのIPの行をDELETEしてください。端末IDはホバーで全体表示されます。</p>
   <table>
-    <tr><th>id</th><th>日時(UTC)</th><th>写真</th><th>言語</th><th>端末ID</th><th>IPアドレス</th><th>User-Agent</th></tr>
+    <tr><th>id</th><th>日時(JST)</th><th>写真</th><th>言語</th><th>端末ID</th><th>IPアドレス</th><th>User-Agent</th></tr>
     ${rows || '<tr><td colspan="7">まだデータがありません</td></tr>'}
   </table>
 </body>

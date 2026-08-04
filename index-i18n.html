@@ -67,6 +67,20 @@
     display:none; z-index:999;
   }
 
+  /* カメラの許可が得られなかった時(拒否・ブロック済みなど)に表示する案内。
+     ブラウザは一度拒否されると再度は許可ダイアログを出さないため、
+     設定を変えて再読み込みしてもらうよう案内する */
+  #cameraError{
+    position:fixed; inset:0; background:#0c0c0d; color:#ece7df;
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:32px; z-index:1001; line-height:1.8; font-size:14px;
+  }
+  #cameraError.visible{ display:flex; }
+  #cameraError button{
+    margin-top:20px; padding:12px 28px; border-radius:24px;
+    border:1px solid #c9a24a; color:#c9a24a; background:none; font-size:14px;
+  }
+
   /* 遠くの写真を絞り込んで認識させるためのズームレベル表示。
      ピンチ操作中だけ画面中央にふわっと出て、操作をやめると自動的に消える */
   #zoomLevel{
@@ -145,12 +159,22 @@
   <button id="startCameraBtn" onclick="document.getElementById('startOverlay').style.display='none'">
     <span class="lang-ja">カメラを起動する</span><span class="lang-en">Start Camera</span>
   </button>
-  <div id="versionTag">i18n-v1.7</div>
+  <div id="versionTag">i18n-v1.8</div>
 </div>
 
 <div id="multiNotice">
   <span class="lang-ja">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</span>
   <span class="lang-en">Multiple photos detected. Move closer so only one is in view.</span>
+</div>
+
+<div id="cameraError">
+  <div>
+    <p class="lang-ja">カメラの許可が必要です。<br>ブラウザの設定でこのサイトのカメラアクセスを許可してから、再読み込みしてください。</p>
+    <p class="lang-en">Camera access is required.<br>Please allow camera access for this site in your browser settings, then reload the page.</p>
+  </div>
+  <button onclick="location.reload()">
+    <span class="lang-ja">再読み込み</span><span class="lang-en">Reload</span>
+  </button>
 </div>
 
 <!-- 写真まで距離がある時に、画面をピンチイン/ピンチアウトすると認識させる1枚を絞り込める -->
@@ -595,6 +619,18 @@
     startBtn.addEventListener('click', () => {
       const arSystem = sceneEl.systems['mindar-image-system'];
       arSystem.start(); // カメラ起動 & 認識開始
+    });
+
+    // カメラの許可が拒否/ブロックされているとgetUserMediaが失敗し、MindARは
+    // 'arError'({error:'VIDEO_FAIL'})を発行する。ブラウザは一度拒否されると
+    // 再度は許可ダイアログを出さずに黙って失敗し続けるため、読み込み中の表示が
+    // 終わらないまま止まって見える。エラー時は読み込み表示を消し、設定変更を促す。
+    sceneEl.addEventListener('arError', (e) => {
+      if (e.detail && e.detail.error === 'VIDEO_FAIL') {
+        const arSystem = sceneEl.systems['mindar-image-system'];
+        if (arSystem.ui) arSystem.ui.hideLoading();
+        document.querySelector('#cameraError').classList.add('visible');
+      }
     });
 
     // MindARはカメラ映像の準備が整うと'arReady'を発行し、その時点で初めて

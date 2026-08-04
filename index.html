@@ -54,15 +54,19 @@
   }
   #aboutDetails summary::-webkit-details-marker{ display:none; }
   #aboutDetails summary .chevron{
-    display:inline-block; font-size:10px; transition:transform 0.2s ease;
+    display:inline-block; font-size:20px; line-height:1; transition:transform 0.25s ease;
   }
   #aboutDetails[open] summary .chevron{ transform:rotate(180deg); }
-  #aboutDetails .about-body{ margin-top:14px; font-size:12.5px; line-height:1.85; }
+  #aboutDetails .about-body{
+    margin-top:14px; font-size:12.5px; line-height:1.85;
+    overflow:hidden; transition:height 0.3s ease;
+  }
   #aboutDetails .about-body p{ margin:0 0 12px; text-align:justify; }
   #aboutDetails .credits{ margin-top:16px; font-size:11px; color:#8b8681; line-height:1.9; }
   #versionTag{
-    margin-top:18px;
-    font-size:11px; color:#5a564f; letter-spacing:0.05em;
+    align-self:flex-end;
+    margin-top:10px;
+    font-size:10px; color:#3a362f; letter-spacing:0.05em;
   }
 
   /* 複数の写真を同時に認識した時、どの説明か分からなくなるのを避けるための通知 */
@@ -126,7 +130,7 @@
     </div>
   </details>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v2.9</div>
+  <div id="versionTag">v2.10</div>
 </div>
 
 <div id="multiNotice">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</div>
@@ -560,6 +564,26 @@
     startBtn.addEventListener('click', () => {
       const arSystem = sceneEl.systems['mindar-image-system'];
       arSystem.start(); // カメラ起動 & 認識開始
+    });
+
+    // <details>は開閉が瞬時に切り替わってしまうため、開く時だけ高さをアニメーションさせる。
+    // (閉じる時はネイティブの挙動のまま瞬時に閉じる)
+    const aboutDetails = document.querySelector('#aboutDetails');
+    const aboutBody = aboutDetails.querySelector('.about-body');
+    aboutDetails.addEventListener('toggle', () => {
+      if (aboutDetails.open) {
+        const targetHeight = aboutBody.scrollHeight;
+        aboutBody.style.height = '0px';
+        requestAnimationFrame(() => {
+          aboutBody.style.height = targetHeight + 'px';
+        });
+        aboutBody.addEventListener('transitionend', function handler() {
+          aboutBody.style.height = 'auto';
+          aboutBody.removeEventListener('transitionend', handler);
+        }, { once: true });
+      } else {
+        aboutBody.style.height = '';
+      }
     });
 
     // カメラの許可が拒否/ブロックされているとgetUserMediaが失敗し、MindARは

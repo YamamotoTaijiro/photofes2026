@@ -90,7 +90,7 @@
 <div id="startOverlay">
   <div>
     <h1 style="font-weight:500;">
-      <span class="lang-ja">かざして見る展示ガイド</span><span class="lang-en">Photo Exhibition AR Guide</span>
+      <span class="lang-ja">かざして見る展示ガイド</span><span class="lang-en">Point & View Exhibition Guide</span>
     </h1>
     <p style="color:#8b8681;">
       <span class="lang-ja">展示写真にカメラをかざすと解説が表示されます</span><span class="lang-en">Point your camera at an exhibited photo to see its description</span>
@@ -103,7 +103,7 @@
   <button id="startCameraBtn" onclick="document.getElementById('startOverlay').style.display='none'">
     <span class="lang-ja">カメラを起動する</span><span class="lang-en">Start Camera</span>
   </button>
-  <div id="versionTag">i18n-v1.5</div>
+  <div id="versionTag">i18n-v1.6</div>
 </div>
 
 <div id="multiNotice">
@@ -531,7 +531,7 @@
 
     // 表示言語の切り替え(日本語/英語)。localStorageに保存して次回訪問時も引き継ぎ、
     // 初回はブラウザの言語設定(navigator.language)から日本語かどうかを推測する。
-    const TITLE_TEXT = { ja: 'かざして見る展示ガイド', en: 'Photo Exhibition AR Guide' };
+    const TITLE_TEXT = { ja: 'かざして見る展示ガイド', en: 'Point & View Exhibition Guide' };
     let currentLang = localStorage.getItem('photofes-lang') || (navigator.language.startsWith('ja') ? 'ja' : 'en');
 
     function applyLang(lang) {

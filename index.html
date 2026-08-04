@@ -33,13 +33,27 @@
 
   #startOverlay{
     position:fixed; inset:0; background:#0c0c0d; color:#ece7df;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    z-index:1000; text-align:center; padding:24px;
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+    z-index:1000; text-align:center; padding:32px 24px; overflow-y:auto;
   }
   #startOverlay button{
     margin-top:20px; padding:12px 28px; border-radius:24px;
     border:1px solid #c9a24a; color:#c9a24a; background:none; font-size:14px;
   }
+  #posterImg{
+    width:55%; max-width:200px; border-radius:6px; margin-bottom:20px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.5);
+  }
+  #aboutDetails{
+    margin-top:18px; max-width:520px; text-align:left; color:#c7c2b8;
+  }
+  #aboutDetails summary{
+    cursor:pointer; text-align:center; color:#8b8681; font-size:13px; list-style:none;
+  }
+  #aboutDetails summary::-webkit-details-marker{ display:none; }
+  #aboutDetails .about-body{ margin-top:14px; font-size:12.5px; line-height:1.85; }
+  #aboutDetails .about-body p{ margin:0 0 12px; }
+  #aboutDetails .credits{ margin-top:16px; font-size:11px; color:#8b8681; line-height:1.9; }
   #versionTag{
     position:absolute; bottom:10px; right:14px;
     font-size:11px; color:#5a564f; letter-spacing:0.05em;
@@ -69,12 +83,30 @@
 
 <!-- カメラ起動前のスタート画面(iOSはユーザー操作がないとカメラ許可が出ないため) -->
 <div id="startOverlay">
+  <img id="posterImg" src="./poster.jpg" alt="ASAMA INTERNATIONAL PHOTO FESTIVAL PHOTO MIYOTA">
   <div>
     <h1 style="font-weight:500;">かざして見る展示ガイド</h1>
     <p style="color:#8b8681;">展示写真にカメラをかざすと解説が表示されます</p>
   </div>
+  <details id="aboutDetails">
+    <summary>この展示について</summary>
+    <div class="about-body">
+      <p>私たちの日常のすぐ隣には、まだ見ぬ無数の「はたらく景色」が広がっています。</p>
+      <p>ここ御代田町には、何代にもわたる伝統を受け継ぐ蒸留所や農家があり、世界の最先端を走るものづくりの工場があり、これからの時代を紡ぎ出すプロジェクトを展開している企業があります。多様な背景を持つ人々がこの地に集い、それぞれが誇りを持って日々を営んでいます。</p>
+      <p>本展は、コワーキングスペースGokalabのメンバーである6人のフォトグラファーが、地域の企業や事業所に協力を仰ぎながら撮影を重ね、独自の視点を通じて日常のストーリーを紡ぎ出したポートレート展です。</p>
+      <p>壁をぐるっと巡る写真の数々は、人と地域が美しく混ざり合い、交差する瞬間の記録です。普段は見えにくい現場の熱量や日常のストーリー。それらが織りなすひとつの大きな「景色」の中を歩きながら、御代田の新たな魅力と、未来へつながる息遣いを感じてみてください。</p>
+      <div class="credits">
+        <p><strong>Special Thanks：撮影協力（五十音・アルファベット順）</strong><br>
+        あさま動物病院／大井建設工業株式会社／株式会社カネト／信州御代田龍神太鼓保存会「鼓響」／信州御代田 龍の舞保存会／戸塚酒造株式会社／有限会社トップリバー／濱野皮革工藝株式会社／株式会社ひらまつ／ベーカリーココラデ 御代田店／御代田消防署／御代田町役場／株式会社ヤッホーブルーイング／一般社団法人林業芸術社／フェリーチェ／K's Roastery</p>
+        <p>御代田の未来を共につくる、すべての「はたらく人たち」に深い敬意と感謝を込めて。</p>
+        <p><strong>Photographers</strong><br>
+        Gokalabのコンセプト「はたらくが広がる」を軸に、6名のフォトグラファーがそれぞれの視点から、御代田の「はたらく」を立体的に切り取りました。<br>
+        番匠健太｜清水宣晶｜鈴木優介｜吉田達矢｜佐藤克則｜金久美</p>
+      </div>
+    </div>
+  </details>
   <button onclick="document.getElementById('startOverlay').style.display='none'">カメラを起動する</button>
-  <div id="versionTag">v2.5</div>
+  <div id="versionTag">v2.6</div>
 </div>
 
 <div id="multiNotice">複数の写真を認識しています。1枚だけになるようカメラを近づけてください</div>

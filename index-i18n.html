@@ -48,9 +48,15 @@
     margin-top:18px; max-width:520px; text-align:left; color:#c7c2b8;
   }
   #aboutDetails summary{
-    cursor:pointer; text-align:center; color:#8b8681; font-size:13px; list-style:none;
+    cursor:pointer; color:#8b8681; font-size:13px; list-style:none;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:8px 16px; border:1px solid #3a362f; border-radius:16px;
   }
   #aboutDetails summary::-webkit-details-marker{ display:none; }
+  #aboutDetails summary .chevron{
+    display:inline-block; font-size:10px; transition:transform 0.2s ease;
+  }
+  #aboutDetails[open] summary .chevron{ transform:rotate(180deg); }
   #aboutDetails .about-body{ margin-top:14px; font-size:12.5px; line-height:1.85; }
   #aboutDetails .about-body p{ margin:0 0 12px; text-align:justify; }
   #aboutDetails .credits{ margin-top:16px; font-size:11px; color:#8b8681; line-height:1.9; }
@@ -130,7 +136,7 @@
     <button type="button" data-lang="en">English</button>
   </div>
   <details id="aboutDetails">
-    <summary><span class="lang-ja">この展示について</span><span class="lang-en">About this exhibition</span></summary>
+    <summary><span class="lang-ja">この展示について</span><span class="lang-en">About this exhibition</span> <span class="chevron">▾</span></summary>
     <div class="about-body">
       <p><span class="lang-ja">私たちの日常のすぐ隣には、まだ見ぬ無数の「はたらく景色」が広がっています。</span><span class="lang-en">Right next to our daily lives lies a countless number of undiscovered "landscapes of work."</span></p>
       <p><span class="lang-ja">ここ御代田町には、何代にもわたる伝統を受け継ぐ蒸留所や農家があり、世界の最先端を走るものづくりの工場があり、これからの時代を紡ぎ出すプロジェクトを展開している企業があります。多様な背景を持つ人々がこの地に集い、それぞれが誇りを持って日々を営んでいます。</span><span class="lang-en">Here in Miyota, there are distilleries and farms carrying on traditions passed down across generations, manufacturing plants standing at the global forefront, and companies weaving the future. People from diverse backgrounds gather here, each conducting their daily lives with pride.</span></p>
@@ -154,7 +160,7 @@
   <button id="startCameraBtn" onclick="document.getElementById('startOverlay').style.display='none'">
     <span class="lang-ja">カメラを起動する</span><span class="lang-en">Start Camera</span>
   </button>
-  <div id="versionTag">i18n-v1.10</div>
+  <div id="versionTag">i18n-v1.11</div>
 </div>
 
 <div id="multiNotice">
